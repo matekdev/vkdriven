@@ -20,6 +20,12 @@ void VulkanEngine::init()
     const auto windowFlags = SDL_WINDOW_VULKAN;
 
     _window = SDL_CreateWindow("VKDriven", _windowExtent.width, _windowExtent.height, windowFlags);
+
+    initVulkan();
+    initSwapchain();
+    initCommands();
+    initSyncStructures();
+
     _isInitialized = true;
 }
 
