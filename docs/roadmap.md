@@ -1,8 +1,8 @@
-# Vast Engine Roadmap
+# vkdriven Roadmap
 
 **Current scope: P0 through P5.** P6, P7 and the stretch items are listed for later and aren't part of the current plan.
 
-Vast Engine is a GPU-driven renderer for very large scenes, built on a modern explicit API.
+vkdriven is a GPU-driven renderer for very large scenes, built on a modern explicit API.
 
 ---
 

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Vast Engine is a GPU-driven Vulkan 1.3 renderer for very large scenes. The plan and current scope are in `docs/roadmap.md`.
+vkdriven is a GPU-driven Vulkan 1.3 renderer for very large scenes. The plan and current scope are in `docs/roadmap.md`.
 
 ## Code style
 
@@ -38,7 +38,7 @@ From a Developer PowerShell for VS:
 ```
 cmake --preset debug
 cmake --build --preset debug
-build\debug\bin\vast.exe
+build\debug\bin\vkdriven.exe
 ```
 
 Presets: `debug` and `release` (RelWithDebInfo). vcpkg installs all dependencies on the first configure. CI (`.github/workflows/build.yml`) builds both presets on every push to `main`.
@@ -46,7 +46,7 @@ Presets: `debug` and `release` (RelWithDebInfo). vcpkg installs all dependencies
 ## Layout
 
 - `src/`: engine source. New `.cpp` files must be added to `add_executable` in `CMakeLists.txt`.
-- `shaders/`: Slang shaders. New files must be added to `vast_add_shaders` in `CMakeLists.txt`.
+- `shaders/`: Slang shaders. New files must be added to `vkdriven_add_shaders` in `CMakeLists.txt`.
 - `cmake/Shaders.cmake`: compiles each `.slang` file with `slangc` into one SPIR-V module per file at `build/<preset>/bin/shaders/<name>.spv`, keeping entry point names (`-fvk-use-entrypoint-name`).
 - `docs/roadmap.md`: phased checklist. Check items off when they're done.
 

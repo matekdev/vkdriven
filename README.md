@@ -1,4 +1,4 @@
-# Vast Engine
+# vkdriven
 
 A GPU-driven Vulkan 1.3 renderer for very large scenes.
 
@@ -23,7 +23,7 @@ All libraries come from vcpkg, including the Slang compiler, and are installed o
 ```
 cmake --preset debug
 cmake --build --preset debug
-build\debug\bin\vast.exe
+build\debug\bin\vkdriven.exe
 ```
 
 ## Planned features
