@@ -1,0 +1,21 @@
+# Build output
+build/
+out/
+cmake-build-*/
+CMakeUserPresets.json
+
+# vcpkg
+vcpkg_installed/
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+*.user
+
+# Large test scenes (downloaded separately)
+assets/
+
+# Captures and profiles
+*.rdc
+*.tracy
