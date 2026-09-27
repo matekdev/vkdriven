@@ -7,6 +7,7 @@ Vast Engine is a GPU-driven Vulkan 1.3 renderer for very large scenes. The plan 
 - No comments in the code you generate unless absolutely necessary, leave any existing comments intact. Write clean, self-documenting code.
 - Use early returns where possible.
 - Keep functions small and focused.
+- Keep functions small and focused, but don't split code up early. Keeping things in one function (even `main`) is fine until there's a real reason to extract. Don't over-engineer.
 - Use descriptive variable and function names.
 - C++23 on MSVC (`CMAKE_CXX_STANDARD 23`). Only drop to C++20 if a dependency genuinely fails to build with C++23.
 - Always use modern C++ where possible:
@@ -15,6 +16,10 @@ Vast Engine is a GPU-driven Vulkan 1.3 renderer for very large scenes. The plan 
   - Designated initializers for Vulkan create-info structs.
   - `enum class`, `constexpr`, structured bindings, ranges and range-based `for` where they make the code clearer.
 - Warnings at `/W4` should stay clean in project code.
+
+## Git
+
+- **Never commit or push.** Leave all changes uncommitted so the owner can review them first. Only commit when the owner explicitly asks for that specific change.
 
 ## What AI may write
 
