@@ -73,6 +73,11 @@ void VulkanEngine::cleanup()
     if (!_isInitialized)
         return;
 
+    vkDeviceWaitIdle(_device);
+
+    for (int i = 0; i < FRAME_OVERLAP; i++)
+        vkDestroyCommandPool(_device, _frames[i]._commandPool, nullptr);
+
     destroySwapchain();
 
     vkDestroySurfaceKHR(_instance, _surface, nullptr);
@@ -117,6 +122,9 @@ void VulkanEngine::initVulkan()
 
     _device = vkDevice.device;
     _gpu = physicalDevice.physical_device;
+
+    _graphicsQueue = vkDevice.get_queue(vkb::QueueType::graphics).value();
+    _graphicsQueueFamily = vkDevice.get_queue_index(vkb::QueueType::graphics).value();
 }
 
 void VulkanEngine::initSwapchain()
@@ -126,6 +134,25 @@ void VulkanEngine::initSwapchain()
 
 void VulkanEngine::initCommands()
 {
+    auto commandPoolInfo = VkCommandPoolCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = _graphicsQueueFamily,
+    };
+
+    for (int i = 0; i < FRAME_OVERLAP; i++)
+    {
+        vkCheck(vkCreateCommandPool(_device, &commandPoolInfo, nullptr, &_frames[i]._commandPool));
+        auto commandBufferInfo = VkCommandBufferAllocateInfo{
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .pNext = nullptr,
+            .commandPool = _frames[i]._commandPool,
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1,
+        };
+        vkCheck(vkAllocateCommandBuffers(_device, &commandBufferInfo, &_frames[i]._mainCommandBuffer));
+    }
 }
 
 void VulkanEngine::initSyncStructures()
