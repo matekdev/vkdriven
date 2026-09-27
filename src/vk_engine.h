@@ -11,6 +11,13 @@ class VulkanEngine
     VkDevice _device;
     VkSurfaceKHR _surface;
 
+    VkSwapchainKHR _swapchain;
+    VkFormat _swapchainImageFormat;
+
+    std::vector<VkImage> _swapchainImages;
+    std::vector<VkImageView> _swapchainImageViews;
+    VkExtent2D _swapchainExtent;
+
     bool _isInitialized = false;
     int _frameNumber = 0;
     bool _stopRendering = false;
@@ -33,4 +40,7 @@ class VulkanEngine
     void initSwapchain();
     void initCommands();
     void initSyncStructures();
+
+    void createSwapchain(uint32_t width, uint32_t height);
+    void destroySwapchain();
 };
