@@ -55,7 +55,7 @@ Hour estimates assume ~5 hrs/week. P0 through P4 is about 155h, or roughly **8 m
 - [x] Shader compilation: Slang→SPIR-V via `slangc`, run as a build step
 - [ ] Validation layers on in debug builds, plus a debug-utils messenger. Give every object a debug name.
 - [ ] RenderDoc capture works. Tracy for CPU and GPU profiling zones.
-- [ ] GitHub Actions: Windows build (Linux build optional)
+- [x] GitHub Actions: Windows build (Linux build optional)
 
 ### P1: Vulkan core (~40h, 8 weeks). *Milestone: textured Sponza + fly camera*
 - [ ] Instance, physical device selection, logical device, queue families (graphics + dedicated compute + transfer), written by hand
