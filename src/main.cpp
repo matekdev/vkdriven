@@ -29,7 +29,7 @@ int main(int, char**)
     constexpr auto windowHeight = 900;
     constexpr auto windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
 
-    auto* const window = SDL_CreateWindow("Vast Engine", windowWidth, windowHeight, windowFlags);
+    auto* const window = SDL_CreateWindow("vkdriven", windowWidth, windowHeight, windowFlags);
     if (!window)
     {
         fmt::println(stderr, "SDL_CreateWindow failed: {}", SDL_GetError());

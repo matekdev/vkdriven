@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(VastEngine LANGUAGES CXX)
+project(vkdriven LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,13 +24,13 @@ find_package(Tracy CONFIG REQUIRED)
 
 include(cmake/Shaders.cmake)
 
-add_executable(vast
+add_executable(vkdriven
     src/main.cpp
 )
 
-target_include_directories(vast PRIVATE src ${Stb_INCLUDE_DIR})
+target_include_directories(vkdriven PRIVATE src ${Stb_INCLUDE_DIR})
 
-target_link_libraries(vast PRIVATE
+target_link_libraries(vkdriven PRIVATE
     Vulkan::Vulkan
     SDL3::SDL3
     vk-bootstrap::vk-bootstrap
@@ -43,16 +43,16 @@ target_link_libraries(vast PRIVATE
     Tracy::TracyClient
 )
 
-target_compile_definitions(vast PRIVATE
+target_compile_definitions(vkdriven PRIVATE
     GLM_FORCE_DEPTH_ZERO_TO_ONE
     NOMINMAX
     WIN32_LEAN_AND_MEAN
 )
 
 if(MSVC)
-    target_compile_options(vast PRIVATE /W4 /permissive- /utf-8 /Zc:__cplusplus)
+    target_compile_options(vkdriven PRIVATE /W4 /permissive- /utf-8 /Zc:__cplusplus)
 endif()
 
-vast_add_shaders(vast
+vkdriven_add_shaders(vkdriven
     shaders/triangle.slang
 )

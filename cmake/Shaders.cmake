@@ -8,12 +8,12 @@ find_program(SLANGC_EXECUTABLE slangc
 
 # Debug info is always on so RenderDoc and Nsight can show shader source.
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(VAST_SLANG_FLAGS -g2 -O0)
+    set(VKDRIVEN_SLANG_FLAGS -g2 -O0)
 else()
-    set(VAST_SLANG_FLAGS -g2 -O2)
+    set(VKDRIVEN_SLANG_FLAGS -g2 -O2)
 endif()
 
-function(vast_add_shaders target)
+function(vkdriven_add_shaders target)
     set(outputs)
     foreach(source IN LISTS ARGN)
         get_filename_component(name "${source}" NAME_WE)
@@ -27,7 +27,7 @@ function(vast_add_shaders target)
                 -profile spirv_1_6
                 -fvk-use-entrypoint-name
                 -matrix-layout-column-major
-                ${VAST_SLANG_FLAGS}
+                ${VKDRIVEN_SLANG_FLAGS}
                 -o "${output}"
                 -depfile "${output}.d"
             DEPENDS "${input}"
