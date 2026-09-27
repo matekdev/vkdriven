@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "vast-engine",
+  "version": "0.1.0",
+  "dependencies": [
+    "vulkan",
+    {
+      "name": "sdl3",
+      "features": [ "vulkan" ]
+    },
+    "vk-bootstrap",
+    "vulkan-memory-allocator",
+    "glm",
+    "fmt",
+    {
+      "name": "imgui",
+      "features": [ "sdl3-binding", "vulkan-binding" ]
+    },
+    "stb",
+    "fastgltf",
+    "meshoptimizer",
+    "tracy",
+    "shader-slang"
+  ]
+}

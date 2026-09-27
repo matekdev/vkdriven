@@ -8,16 +8,17 @@ Vast Engine is a GPU-driven renderer for very large scenes, built on a modern ex
 
 ## 1. API: Vulkan 1.3+, used the modern way
 
-**Vulkan 1.3** with **dynamic rendering, synchronization2, buffer device address (BDA), and descriptor indexing (bindless)**. Shaders are written in **HLSL** and compiled to SPIR-V with DXC.
+**Vulkan 1.3** with **dynamic rendering, synchronization2, buffer device address (BDA), and descriptor indexing (bindless)**. Shaders are written in **Slang** and compiled to SPIR-V with `slangc` at build time.
 
 - **Explicit control.** Memory, barriers, queues and pipeline state are managed directly, the same way DX12 and Metal work.
 - **Access to modern GPU features:** mesh shaders, hardware ray tracing, bindless resources, indirect draws with a GPU-written draw count, async compute.
-- **HLSL** would carry over to a DX12 backend.
+- **Slang** has HLSL-like syntax, compiles to SPIR-V, DXIL and Metal, and adds modules and generics.
 
 **Things to avoid:**
 - **No RHI or multi-backend abstraction.** The abstraction layer would become the project. Write Vulkan directly. Keep it tidy, but don't abstract it.
 - **No Vulkan 1.0-style patterns** (render passes, framebuffer objects, per-draw descriptor sets). Dynamic rendering and bindless from the start.
-- **Instance/device/queue setup is written by hand**, not with a wrapper like vk-bootstrap. VMA is used for memory allocation.
+- **vk-bootstrap to start, as vkguide does.** Replace it with hand-written instance/device/queue setup once P1 works. VMA is used for memory allocation.
+- **No volk.** vcpkg's ImGui Vulkan backend links the Vulkan loader directly, and mixing that with volk causes symbol clashes. Extension functions (e.g. mesh shaders) are loaded with `vkGetDeviceProcAddr`.
 
 ---
 
@@ -47,11 +48,11 @@ A **renderer for very large scenes** (a "massive model viewer"). It loads big gl
 Hour estimates assume ~5 hrs/week. P0 through P4 is about 155h, or roughly **8 months** with blog writing included.
 
 ### P0: Setup (~10h, 2 weeks)
-- [ ] New repo. CMake + vcpkg (or FetchContent). C++20.
-- [ ] Windowing with SDL3 or GLFW
-- [ ] **volk** for function loading, **VMA** for memory
-- [ ] ImGui with the Vulkan backend
-- [ ] Shader compilation: DXC (HLSL→SPIR-V) or Slang, run as a build step
+- [x] New repo. CMake presets + vcpkg manifest. C++23. Visual Studio 2026.
+- [x] Windowing with SDL3
+- [x] Packages: vk-bootstrap, VMA, glm, fmt, ImGui, stb, fastgltf, meshoptimizer, Tracy
+- [ ] ImGui with the Vulkan backend (needs a device, so done alongside P1)
+- [x] Shader compilation: Slang→SPIR-V via `slangc`, run as a build step
 - [ ] Validation layers on in debug builds, plus a debug-utils messenger. Give every object a debug name.
 - [ ] RenderDoc capture works. Tracy for CPU and GPU profiling zones.
 - [ ] GitHub Actions: Windows build (Linux build optional)
