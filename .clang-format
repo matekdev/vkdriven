@@ -1,0 +1,14 @@
+BasedOnStyle: Microsoft
+Language: Cpp
+Standard: Latest
+IndentWidth: 4
+UseTab: Never
+ColumnLimit: 120
+PointerAlignment: Left
+BreakBeforeBraces: Allman
+SortIncludes: Never
+IncludeBlocks: Preserve
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+InsertNewlineAtEOF: true
