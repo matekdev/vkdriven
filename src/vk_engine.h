@@ -4,7 +4,7 @@
 
 class VulkanEngine
 {
-public:
+  public:
     VkInstance _instance;
     VkDebugUtilsMessengerEXT _debugMessenger;
     VkPhysicalDevice _gpu;
@@ -14,7 +14,7 @@ public:
     bool _isInitialized = false;
     int _frameNumber = 0;
     bool _stopRendering = false;
-    VkExtent2D _windowExtent{ 1700, 900 };
+    VkExtent2D _windowExtent{1700, 900};
     struct SDL_Window* _window = nullptr;
 
     static VulkanEngine& get();
@@ -24,7 +24,7 @@ public:
     void draw();
     void cleanup();
 
-private:
+  private:
     VulkanEngine() = default;
     VulkanEngine(const VulkanEngine&) = delete;
     VulkanEngine& operator=(const VulkanEngine&) = delete;
