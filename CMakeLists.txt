@@ -26,6 +26,7 @@ include(cmake/Shaders.cmake)
 
 add_executable(vkdriven
     src/main.cpp
+    src/vk_engine.cpp
 )
 
 target_include_directories(vkdriven PRIVATE src ${Stb_INCLUDE_DIR})
