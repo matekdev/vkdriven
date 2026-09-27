@@ -8,7 +8,13 @@ Vast Engine is a GPU-driven Vulkan 1.3 renderer for very large scenes. The plan 
 - Use early returns where possible.
 - Keep functions small and focused.
 - Use descriptive variable and function names.
-- C++23, MSVC. Warnings at `/W4` should stay clean in project code.
+- C++23 on MSVC (`CMAKE_CXX_STANDARD 23`). Only drop to C++20 if a dependency genuinely fails to build with C++23.
+- Always use modern C++ where possible:
+  - RAII for every resource. No owning raw pointers, no manual `new`/`delete`.
+  - `std::span` for views over contiguous data, `std::optional` for values that may be absent, `std::expected` for fallible operations.
+  - Designated initializers for Vulkan create-info structs.
+  - `enum class`, `constexpr`, structured bindings, ranges and range-based `for` where they make the code clearer.
+- Warnings at `/W4` should stay clean in project code.
 
 ## What AI may write
 
