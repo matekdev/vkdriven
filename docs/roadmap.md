@@ -8,7 +8,9 @@ vkdriven is a GPU-driven renderer for very large scenes, built on a modern expli
 
 ## 1. API: Vulkan 1.3+, used the modern way
 
-**Vulkan 1.3** with **dynamic rendering, synchronization2, buffer device address (BDA), and descriptor indexing (bindless)**. Shaders are written in **Slang** and compiled to SPIR-V with `slangc` at build time.
+**Vulkan 1.3** with **dynamic rendering, synchronization2, buffer device address (BDA), and descriptor indexing (bindless)**. Shaders are written in **Slang** and compiled to SPIR-V at runtime through the Slang API.
+
+**Primary reference: [How to Vulkan](https://www.howtovulkan.com/)** by Sascha Willems ([source](https://github.com/SaschaWillems/HowToVulkan)). It builds a textured, lit mesh renderer on exactly this feature set in a single `main.cpp`, using the same libraries as this project: SDL3, volk, VMA, glm, tinyobjloader, KTX-Software and Slang. P1 follows it chapter by chapter, with the code written by hand rather than copied.
 
 - **Explicit control.** Memory, barriers, queues and pipeline state are managed directly, the same way DX12 and Metal work.
 - **Access to modern GPU features:** mesh shaders, hardware ray tracing, bindless resources, indirect draws with a GPU-written draw count, async compute.
@@ -17,8 +19,8 @@ vkdriven is a GPU-driven renderer for very large scenes, built on a modern expli
 **Things to avoid:**
 - **No RHI or multi-backend abstraction.** The abstraction layer would become the project. Write Vulkan directly. Keep it tidy, but don't abstract it.
 - **No Vulkan 1.0-style patterns** (render passes, framebuffer objects, per-draw descriptor sets). Dynamic rendering and bindless from the start.
-- **vk-bootstrap to start, as vkguide does.** Replace it with hand-written instance/device/queue setup once P1 works. VMA is used for memory allocation.
-- **No volk.** vcpkg's ImGui Vulkan backend links the Vulkan loader directly, and mixing that with volk causes symbol clashes. Extension functions (e.g. mesh shaders) are loaded with `vkGetDeviceProcAddr`.
+- **No vk-bootstrap.** Instance, device and queue setup are written by hand from the start, as How to Vulkan does. VMA is used for memory allocation.
+- **volk loads all Vulkan functions**, including extensions (e.g. mesh shaders). The project doesn't link the Vulkan loader. When ImGui is added, its Vulkan backend has to be built with `IMGUI_IMPL_VULKAN_USE_VOLK` (or `IMGUI_IMPL_VULKAN_NO_PROTOTYPES`), because vcpkg's prebuilt backend links the loader and clashes with volk.
 
 ---
 
@@ -49,32 +51,40 @@ Hour estimates assume ~5 hrs/week. P0 through P4 is about 155h, or roughly **8 m
 
 ### P0: Setup (~10h, 2 weeks)
 - [x] New repo. CMake presets + vcpkg manifest. C++23. Visual Studio 2026.
-- [x] Windowing with SDL3
-- [x] Packages: vk-bootstrap, VMA, glm, fmt, ImGui, stb, fastgltf, meshoptimizer, Tracy
-- [ ] ImGui with the Vulkan backend (needs a device, so done alongside P1)
-- [x] Shader compilation: Slang→SPIR-V via `slangc`, run as a build step
+- [x] Windowing with SDL3: a window that opens and runs an event loop
+- [x] Packages (the How to Vulkan set): volk, VMA, glm, SDL3, tinyobjloader, KTX-Software, Slang
 - [ ] Validation layers on in debug builds, plus a debug-utils messenger. Give every object a debug name.
-- [ ] RenderDoc capture works. Tracy for CPU and GPU profiling zones.
+- [ ] RenderDoc capture works
 - [x] GitHub Actions: Windows build (Linux build optional)
 
-### P1: Vulkan core (~40h, 8 weeks). *Milestone: textured Sponza + fly camera*
-- [ ] Instance, physical device selection, logical device, queue families (graphics + dedicated compute + transfer), written by hand
-- [ ] Swapchain creation, handling window resize/recreation, present modes
-- [ ] Frames in flight (2): per-frame command pools/buffers, fences, semaphores
-- [ ] **synchronization2**: image layout transitions and pipeline barriers. Every barrier should have a reason you can state.
-- [ ] **Dynamic rendering** (no VkRenderPass)
-- [ ] Depth buffer with **reverse-Z**
-- [ ] Staging-buffer uploads on a transfer queue, with queue-family ownership transfer
-- [ ] **Bindless**: one global descriptor set with a large texture array (descriptor indexing) and samplers
-- [ ] **Buffer device address**: access vertex/instance/material buffers via pointers in push constants
-- [ ] Graphics + compute pipeline creation, with a `VkPipelineCache` saved to disk
-- [ ] Shader hot-reload (watch the file, recompile, rebuild the pipeline)
-- [ ] Fly camera, ImGui stats (frame time, GPU time)
+### P1: Vulkan core, following How to Vulkan (~40h, 8 weeks). *Milestone: the tutorial's textured, lit mesh, then textured Sponza + fly camera*
+
+Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item names the chapter it comes from.
+
+- [ ] Instance setup with volk (*Instance setup*)
+- [ ] Physical device selection, queue families, logical device with the 1.3 features enabled (*Device selection*, *Queues*, *Device setup*)
+- [ ] VMA allocator (*Setting up VMA*)
+- [ ] SDL3 surface and swapchain (*Window and surface*, *Swapchain*)
+- [ ] Depth attachment, switched to **reverse-Z** (*Depth attachment*)
+- [ ] Load an OBJ mesh with tinyobjloader into a VMA buffer (*Loading meshes*)
+- [ ] Frames in flight (2): per-frame shader data buffers, fences, semaphores, command buffers (*CPU and GPU parallelism*, *Shader data buffers*, *Synchronization objects*, *Command buffers*)
+- [ ] **Buffer device address**: shader data reached through a pointer in push constants (*Shader data buffers*)
+- [ ] KTX textures via KTX-Software, uploaded through a staging buffer (*Loading textures*)
+- [ ] **Bindless**: one descriptor set with a variable-count texture array (descriptor indexing) (*Loading textures*)
+- [ ] Runtime Slang compilation to SPIR-V through the Slang API (*Loading shaders*, *The shader*)
+- [ ] Graphics pipeline with **dynamic rendering** (no VkRenderPass) (*Graphics pipeline*)
+- [ ] Render loop with **synchronization2** barriers, and swapchain recreation on resize. Every barrier should have a reason you can state. (*Render loop*)
+- [ ] Clean shutdown with zero validation errors (*Cleaning up*)
+- [ ] **Tutorial complete.** Tag it.
+- [ ] Beyond the tutorial: dedicated compute + transfer queues, staging uploads with queue-family ownership transfer
+- [ ] Beyond the tutorial: compute pipelines, and a `VkPipelineCache` saved to disk
+- [ ] Beyond the tutorial: shader hot-reload (watch the file, recompile with the Slang API, rebuild the pipeline). Runtime compilation makes this easy.
+- [ ] Add ImGui (backend built against volk) and Tracy. Fly camera, ImGui stats (frame time, GPU time).
 - [ ] 📝 Blog: "Getting started with Vulkan 1.3: what's actually different"
 
 ### P2: Assets & scene (~20h, 4 weeks)
-- [ ] glTF 2.0 loading with **fastgltf**
-- [ ] Textures: KTX2 with BC7/BC5 compression, full mip chains (use `toktx` or `basisu` offline). Fall back to generating mips at runtime.
+- [ ] Add **fastgltf** and move from OBJ (tinyobjloader) to glTF 2.0 loading
+- [ ] Textures: KTX2 via KTX-Software, with BC7/BC5 compression and full mip chains (use `toktx` or `basisu` offline). Fall back to generating mips at runtime.
 - [ ] **One big vertex buffer + one big index buffer** for the whole scene (sets up GPU-driven rendering)
 - [ ] Flattened GPU scene data in SSBOs: transforms, materials, and a per-draw array `{meshIndex, materialIndex, transformIndex}`
 - [ ] Vertex quantization/compression with meshoptimizer (optional)
@@ -95,7 +105,7 @@ Hour estimates assume ~5 hrs/week. P0 through P4 is about 155h, or roughly **8 m
 - [ ] `vkCmdDrawIndexedIndirectCount`: the whole scene in one draw call
 - [ ] **Hi-Z depth pyramid** (compute downsample, min/max reduction)
 - [ ] **Two-pass occlusion culling**: draw last frame's visible objects, build Hi-Z, cull the rest, draw the newly visible ones
-- [ ] **Meshlets** built with meshoptimizer (`meshopt_buildMeshlets`)
+- [ ] Add **meshoptimizer**. **Meshlets** built with `meshopt_buildMeshlets`.
 - [ ] **Mesh shaders** (`VK_EXT_mesh_shader`): task shader does per-meshlet frustum, occlusion, and **cone backface** culling; mesh shader outputs triangles
 - [ ] Fallback path without mesh shaders (meshlet index buffer + indirect draw), so it runs on all hardware
 - [ ] Simple LOD (meshoptimizer `simplify`) chosen per instance in the culling shader
@@ -150,8 +160,8 @@ Hour estimates assume ~5 hrs/week. P0 through P4 is about 155h, or roughly **8 m
 
 | Months | Phase | Output |
 |---|---|---|
-| 0–0.5 | P0 Setup | CI green, triangle on screen |
-| 0.5–2.5 | P1 Vulkan core | Textured Sponza, blog post |
+| 0–0.5 | P0 Setup | CI green, SDL window, validation layers |
+| 0.5–2.5 | P1 Vulkan core | How to Vulkan finished, then textured Sponza, blog post |
 | 2.5–3.5 | P2 Assets | Bistro loads, bindless materials |
 | 3.5–5 | P3 PBR + CSM | Blog post, screenshots |
 | 5–8 | P4 GPU-driven | Blog post |
@@ -167,7 +177,8 @@ Hour estimates assume ~5 hrs/week. P0 through P4 is about 155h, or roughly **8 m
 - *GPU Gems / GPU Pro / GPU Zen*: for specific techniques
 
 **Vulkan**
-- vkguide.dev: modern Vulkan 1.3 guide (dynamic rendering, BDA)
+- **[How to Vulkan](https://www.howtovulkan.com/)** by Sascha Willems: the primary reference for P1. Modern Vulkan 1.3 in one file, same libraries as this project ([source](https://github.com/SaschaWillems/HowToVulkan)).
+- vkguide.dev: a second take on Vulkan 1.3 (dynamic rendering, BDA), useful for engine structure after P1
 - Khronos Vulkan-Samples, and Sascha Willems' Vulkan examples
 - **niagara** by Arseny Kapoulkine (zeux): GitHub repo plus YouTube streams. Very close to P4.
 - Vulkan Guide by Khronos (docs.vulkan.org), especially the synchronization chapters

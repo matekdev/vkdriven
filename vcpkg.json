@@ -3,23 +3,16 @@
   "name": "vkdriven",
   "version": "0.1.0",
   "dependencies": [
-    "vulkan",
+    "vulkan-headers",
+    "volk",
     {
       "name": "sdl3",
       "features": [ "vulkan" ]
     },
-    "vk-bootstrap",
     "vulkan-memory-allocator",
     "glm",
-    "fmt",
-    {
-      "name": "imgui",
-      "features": [ "sdl3-binding", "vulkan-binding" ]
-    },
-    "stb",
-    "fastgltf",
-    "meshoptimizer",
-    "tracy",
+    "tinyobjloader",
+    "ktx",
     "shader-slang"
   ]
 }

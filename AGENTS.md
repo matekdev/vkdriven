@@ -2,6 +2,8 @@
 
 vkdriven is a GPU-driven Vulkan 1.3 renderer for very large scenes. The plan and current scope are in `docs/roadmap.md`.
 
+The Vulkan core follows [How to Vulkan](https://www.howtovulkan.com/) (source: https://github.com/SaschaWillems/HowToVulkan). When explaining or reviewing P1 work, point to the matching chapter and stay consistent with its approach, apart from the project's own choices (C++23, vcpkg, reverse-Z).
+
 ## Code style
 
 - No comments in the code you generate unless absolutely necessary, leave any existing comments intact. Write clean, self-documenting code.
@@ -45,16 +47,16 @@ Presets: `debug` and `release` (RelWithDebInfo). vcpkg installs all dependencies
 
 ## Layout
 
-- `src/`: engine source. New `.cpp` files must be added to `add_executable` in `CMakeLists.txt`.
-- `shaders/`: Slang shaders. New files must be added to `vkdriven_add_shaders` in `CMakeLists.txt`.
-- `cmake/Shaders.cmake`: compiles each `.slang` file with `slangc` into one SPIR-V module per file at `build/<preset>/bin/shaders/<name>.spv`, keeping entry point names (`-fvk-use-entrypoint-name`).
+- `src/`: engine source. Currently a single `main.cpp` (SDL window + event loop), like How to Vulkan. New `.cpp` files must be added to `add_executable` in `CMakeLists.txt`.
+- `shaders/` (not created yet): Slang shaders, compiled to SPIR-V at runtime through the Slang API. There's no build-time shader step. When the first shader is added, CMake should copy `shaders/` next to the executable.
 - `docs/roadmap.md`: phased checklist. Check items off when they're done.
 
 ## Dependencies
 
-All from vcpkg (`vcpkg.json`, pinned in `vcpkg-configuration.json`): Vulkan loader + headers, SDL3, vk-bootstrap, VulkanMemoryAllocator, glm, fmt, ImGui (SDL3 + Vulkan backends), stb, fastgltf, meshoptimizer, Tracy, Slang.
+All from vcpkg (`vcpkg.json`, pinned in `vcpkg-configuration.json`). It's the same set How to Vulkan uses: Vulkan headers, volk, SDL3, VulkanMemoryAllocator, glm, tinyobjloader, KTX-Software (`ktx`), Slang (`shader-slang`). Later phases add fastgltf (P2), meshoptimizer (P4), and ImGui + Tracy (end of P1).
 
-- **Don't add volk.** vcpkg's ImGui Vulkan backend links the Vulkan loader directly, and volk's symbols clash with it. Load extension functions with `vkGetDeviceProcAddr`.
-- glm is built with `GLM_FORCE_DEPTH_ZERO_TO_ONE`. The engine uses reverse-Z.
+- **volk loads all Vulkan functions.** Link `Vulkan::Headers`, never `Vulkan::Vulkan` (the loader), or the loader's exported symbols clash with volk's function pointers.
+- **ImGui with volk:** vcpkg's prebuilt ImGui Vulkan backend links the loader. When ImGui is added, compile `imgui_impl_vulkan.cpp` into the project with `IMGUI_IMPL_VULKAN_USE_VOLK` instead of using the `vulkan-binding` feature.
+- Slang's runtime needs its standard modules next to `slang.dll`. `CMakeLists.txt` copies them into `build/<preset>/bin` after every build.
+- glm is built with `GLM_FORCE_DEPTH_ZERO_TO_ONE`. The engine uses reverse-Z (How to Vulkan uses standard Z, so depth compare op and clear value differ).
 - Slang matrices use column-major layout to match glm.
-- The Tracy profiler app must match the vcpkg Tracy version.

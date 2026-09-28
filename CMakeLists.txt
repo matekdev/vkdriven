@@ -7,41 +7,31 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# The executable, runtime DLLs and compiled shaders all land in build/<preset>/bin.
+# The executable, runtime DLLs and Slang runtime modules all land in build/<preset>/bin.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-find_package(Vulkan REQUIRED)
+find_package(VulkanHeaders CONFIG REQUIRED)
+find_package(volk CONFIG REQUIRED)
 find_package(SDL3 CONFIG REQUIRED)
-find_package(vk-bootstrap CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
-find_package(fmt CONFIG REQUIRED)
-find_package(imgui CONFIG REQUIRED)
-find_package(Stb REQUIRED)
-find_package(fastgltf CONFIG REQUIRED)
-find_package(meshoptimizer CONFIG REQUIRED)
-find_package(Tracy CONFIG REQUIRED)
-
-include(cmake/Shaders.cmake)
+find_package(tinyobjloader CONFIG REQUIRED)
+find_package(Ktx CONFIG REQUIRED)
+find_package(slang CONFIG REQUIRED)
 
 add_executable(vkdriven
     src/main.cpp
-    src/vk_engine.cpp
 )
 
-target_include_directories(vkdriven PRIVATE src ${Stb_INCLUDE_DIR})
-
 target_link_libraries(vkdriven PRIVATE
-    Vulkan::Vulkan
+    Vulkan::Headers
+    volk::volk
     SDL3::SDL3
-    vk-bootstrap::vk-bootstrap
     GPUOpen::VulkanMemoryAllocator
     glm::glm
-    fmt::fmt
-    imgui::imgui
-    fastgltf::fastgltf
-    meshoptimizer::meshoptimizer
-    Tracy::TracyClient
+    tinyobjloader::tinyobjloader
+    KTX::ktx
+    slang::slang
 )
 
 target_compile_definitions(vkdriven PRIVATE
@@ -54,6 +44,16 @@ if(MSVC)
     target_compile_options(vkdriven PRIVATE /W4 /permissive- /utf-8 /Zc:__cplusplus)
 endif()
 
-vkdriven_add_shaders(vkdriven
-    shaders/triangle.slang
-)
+# Slang loads its standard modules from beside slang.dll at runtime, and vcpkg's applocal step doesn't copy them.
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(VKDRIVEN_VCPKG_BIN "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/bin")
+else()
+    set(VKDRIVEN_VCPKG_BIN "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+endif()
+file(GLOB VKDRIVEN_SLANG_MODULES "${VKDRIVEN_VCPKG_BIN}/slang-standard-module-*" "${VKDRIVEN_VCPKG_BIN}/slang.slang")
+if(VKDRIVEN_SLANG_MODULES)
+    add_custom_command(TARGET vkdriven POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${VKDRIVEN_SLANG_MODULES} "$<TARGET_FILE_DIR:vkdriven>"
+        VERBATIM
+    )
+endif()
