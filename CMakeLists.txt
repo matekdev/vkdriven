@@ -64,3 +64,10 @@ add_custom_command(TARGET vkdriven POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:vkdriven>/assets"
     VERBATIM
 )
+
+# Shaders are compiled at runtime, so copy them on every build even when the executable doesn't relink.
+add_custom_target(vkdriven_shaders ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_SOURCE_DIR}/shaders" "$<TARGET_FILE_DIR:vkdriven>/shaders"
+    VERBATIM
+)
+add_dependencies(vkdriven vkdriven_shaders)
