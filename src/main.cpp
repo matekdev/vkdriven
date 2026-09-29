@@ -46,6 +46,27 @@ VkImageView depthImageView{VK_NULL_HANDLE};
 VmaAllocation vBufferAllocation{VK_NULL_HANDLE};
 VkBuffer vBuffer{VK_NULL_HANDLE};
 
+struct ShaderData
+{
+    glm::mat4 projection;
+    glm::mat4 view;
+    glm::mat4 model[3];
+    glm::vec4 lightPos{0.0f, -10.0f, 10.0f, 0.0f};
+    uint32_t selected{1};
+};
+
+struct ShaderDataBuffer
+{
+    VmaAllocation allocation{VK_NULL_HANDLE};
+    VmaAllocationInfo allocationInfo{};
+    VkBuffer buffer{VK_NULL_HANDLE};
+    VkDeviceAddress deviceAddress{};
+};
+
+constexpr uint32_t maxFramesInFlight = 2;
+std::array<ShaderDataBuffer, maxFramesInFlight> shaderDataBuffers;
+std::array<VkCommandBuffer, maxFramesInFlight> commandBuffers;
+
 struct Vertex
 {
     glm::vec3 pos;
@@ -295,6 +316,23 @@ int main(int, char**)
 
     memcpy(vBufferAllocInfo.pMappedData, vertices.data(), vBufSize);
     memcpy(((char*)vBufferAllocInfo.pMappedData) + vBufSize, indices.data(), iBufSize);
+
+    // Shader data buffer setup.
+    for (int i = 0; i < maxFramesInFlight; i++)
+    {
+        VkBufferCreateInfo uBufferCI{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                                     .size = sizeof(ShaderData),
+                                     .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT};
+        VmaAllocationCreateInfo uBufferAllocCI{.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                                        VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
+                                                        VMA_ALLOCATION_CREATE_MAPPED_BIT,
+                                               .usage = VMA_MEMORY_USAGE_AUTO};
+        chk(vmaCreateBuffer(allocator, &uBufferCI, &uBufferAllocCI, &shaderDataBuffers[i].buffer,
+                            &shaderDataBuffers[i].allocation, &shaderDataBuffers[i].allocationInfo));
+        VkBufferDeviceAddressInfo uBufferBdaInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+                                                 .buffer = shaderDataBuffers[i].buffer};
+        shaderDataBuffers[i].deviceAddress = vkGetBufferDeviceAddress(device, &uBufferBdaInfo);
+    }
 
     auto running = true;
     while (running)
