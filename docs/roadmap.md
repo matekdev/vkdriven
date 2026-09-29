@@ -61,20 +61,20 @@ Hour estimates assume ~5 hrs/week. P0 through P4 is about 155h, or roughly **8 m
 
 Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item names the chapter it comes from.
 
-- [ ] Instance setup with volk (*Instance setup*)
-- [ ] Physical device selection, queue families, logical device with the 1.3 features enabled (*Device selection*, *Queues*, *Device setup*)
-- [ ] VMA allocator (*Setting up VMA*)
-- [ ] SDL3 surface and swapchain (*Window and surface*, *Swapchain*)
-- [ ] Depth attachment, switched to **reverse-Z** (*Depth attachment*)
-- [ ] Load an OBJ mesh with tinyobjloader into a VMA buffer (*Loading meshes*)
-- [ ] Frames in flight (2): per-frame shader data buffers, fences, semaphores, command buffers (*CPU and GPU parallelism*, *Shader data buffers*, *Synchronization objects*, *Command buffers*)
-- [ ] **Buffer device address**: shader data reached through a pointer in push constants (*Shader data buffers*)
-- [ ] KTX textures via KTX-Software, uploaded through a staging buffer (*Loading textures*)
-- [ ] **Bindless**: one descriptor set with a variable-count texture array (descriptor indexing) (*Loading textures*)
-- [ ] Runtime Slang compilation to SPIR-V through the Slang API (*Loading shaders*, *The shader*)
-- [ ] Graphics pipeline with **dynamic rendering** (no VkRenderPass) (*Graphics pipeline*)
-- [ ] Render loop with **synchronization2** barriers, and swapchain recreation on resize. Every barrier should have a reason you can state. (*Render loop*)
-- [ ] Clean shutdown with zero validation errors (*Cleaning up*)
+- [x] Instance setup with volk (*Instance setup*)
+- [x] Physical device selection, queue families, logical device with the 1.3 features enabled (*Device selection*, *Queues*, *Device setup*)
+- [x] VMA allocator (*Setting up VMA*)
+- [x] SDL3 surface and swapchain (*Window and surface*, *Swapchain*)
+- [x] Depth attachment, switched to **reverse-Z** (*Depth attachment*)
+- [x] Load an OBJ mesh with tinyobjloader into a VMA buffer (*Loading meshes*)
+- [x] Frames in flight (2): per-frame shader data buffers, fences, semaphores, command buffers (*CPU and GPU parallelism*, *Shader data buffers*, *Synchronization objects*, *Command buffers*)
+- [x] **Buffer device address**: shader data reached through a pointer in push constants (*Shader data buffers*)
+- [x] KTX textures via KTX-Software, uploaded through a staging buffer (*Loading textures*)
+- [x] **Bindless**: one descriptor set with a variable-count texture array (descriptor indexing) (*Loading textures*)
+- [x] Runtime Slang compilation to SPIR-V through the Slang API (*Loading shaders*, *The shader*)
+- [x] Graphics pipeline with **dynamic rendering** (no VkRenderPass) (*Graphics pipeline*)
+- [x] Render loop with **synchronization2** barriers, and swapchain recreation on resize. Every barrier should have a reason you can state. (*Render loop*)
+- [x] Clean shutdown with zero validation errors (*Cleaning up*)
 - [ ] **Tutorial complete.** Tag it.
 - [ ] Beyond the tutorial: dedicated compute + transfer queues, staging uploads with queue-family ownership transfer
 - [ ] Beyond the tutorial: compute pipelines, and a `VkPipelineCache` saved to disk
