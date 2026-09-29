@@ -826,9 +826,8 @@ int main(int, char**)
         chk(vkWaitForFences(device, 1, &fences[frameIndex], VK_TRUE, UINT64_MAX));
 
         // Acquire next image
-        const VkResult acquireResult = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX,
-                                                             imageAcquiredSemaphores[frameIndex], VK_NULL_HANDLE,
-                                                             &imageIndex);
+        const VkResult acquireResult = vkAcquireNextImageKHR(
+            device, swapchain, UINT64_MAX, imageAcquiredSemaphores[frameIndex], VK_NULL_HANDLE, &imageIndex);
         if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR)
         {
             updateSwapchain = true;
@@ -873,8 +872,7 @@ int main(int, char**)
             {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
              .srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
              .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-             .dstStageMask =
-                 VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+             .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
              .dstAccessMask =
                  VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
              .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
