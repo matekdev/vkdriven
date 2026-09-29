@@ -53,7 +53,7 @@ struct ShaderData
     glm::mat4 model[3];
     glm::vec4 lightPos{0.0f, -10.0f, 10.0f, 0.0f};
     uint32_t selected{1};
-};
+} shaderData{};
 
 struct ShaderDataBuffer
 {
@@ -218,7 +218,13 @@ int main(int, char**)
 
     // Swapchain setup.
     VkExtent2D swapchainExtent{surfaceCaps.currentExtent};
-    swapchainExtent = {.width = static_cast<uint32_t>(windowWidth), .height = static_cast<uint32_t>(windowHeight)};
+    if (surfaceCaps.currentExtent.width == 0xFFFFFFFF)
+    {
+        int pixelWidth = 0;
+        int pixelHeight = 0;
+        chk(SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight));
+        swapchainExtent = {.width = static_cast<uint32_t>(pixelWidth), .height = static_cast<uint32_t>(pixelHeight)};
+    }
 
     const VkFormat imageFormat{VK_FORMAT_B8G8R8A8_SRGB};
     VkSwapchainCreateInfoKHR swapchainCI{.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -239,6 +245,16 @@ int main(int, char**)
     swapchainImages.resize(imageCount);
     chk(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, swapchainImages.data()));
     swapchainImageViews.resize(imageCount);
+    for (uint32_t i = 0; i < imageCount; ++i)
+    {
+        VkImageViewCreateInfo viewCI{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = swapchainImages[i],
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = imageFormat,
+            .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1}};
+        chk(vkCreateImageView(device, &viewCI, nullptr, &swapchainImageViews[i]));
+    }
 
     // Depth attachment setup.
     std::vector<VkFormat> depthFormatList{VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
@@ -253,12 +269,17 @@ int main(int, char**)
             break;
         }
     }
+    if (depthFormat == VK_FORMAT_UNDEFINED)
+    {
+        std::println(stderr, "No supported depth/stencil format found");
+        return 1;
+    }
 
     VkImageCreateInfo depthImageCI{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = depthFormat,
-        .extent{.width = static_cast<uint32_t>(windowWidth), .height = static_cast<uint32_t>(windowHeight), .depth = 1},
+        .extent{.width = swapchainExtent.width, .height = swapchainExtent.height, .depth = 1},
         .mipLevels = 1,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -295,9 +316,9 @@ int main(int, char**)
                     attrib.vertices[index.vertex_index * 3 + 2]},
             .normal = {attrib.normals[index.normal_index * 3], -attrib.normals[index.normal_index * 3 + 1],
                        attrib.normals[index.normal_index * 3 + 2]},
-            .uv = {attrib.texcoords[index.texcoord_index * 2], 1.0 - attrib.texcoords[index.texcoord_index * 2 + 1]}};
+            .uv = {attrib.texcoords[index.texcoord_index * 2], 1.0f - attrib.texcoords[index.texcoord_index * 2 + 1]}};
         vertices.push_back(v);
-        indices.push_back(indices.size());
+        indices.push_back(static_cast<uint16_t>(indices.size()));
     }
 
     // Create buffer data for gpu.
@@ -318,7 +339,7 @@ int main(int, char**)
     memcpy(((char*)vBufferAllocInfo.pMappedData) + vBufSize, indices.data(), iBufSize);
 
     // Shader data buffer setup.
-    for (int i = 0; i < maxFramesInFlight; i++)
+    for (uint32_t i = 0; i < maxFramesInFlight; i++)
     {
         VkBufferCreateInfo uBufferCI{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                                      .size = sizeof(ShaderData),
