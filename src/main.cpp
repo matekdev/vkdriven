@@ -35,6 +35,13 @@ VkDevice device{VK_NULL_HANDLE};
 VkQueue queue{VK_NULL_HANDLE};
 VmaAllocator allocator{VK_NULL_HANDLE};
 VkSurfaceKHR surface{VK_NULL_HANDLE};
+VkSwapchainKHR swapchain{VK_NULL_HANDLE};
+std::vector<VkImage> swapchainImages;
+std::vector<VkImageView> swapchainImageViews;
+
+VkImage depthImage{VK_NULL_HANDLE};
+VmaAllocation depthImageAllocation{VK_NULL_HANDLE};
+VkImageView depthImageView{VK_NULL_HANDLE};
 
 static void chk(VkResult result, std::source_location location = std::source_location::current())
 {
@@ -177,6 +184,69 @@ int main(int, char**)
     // Query surface capabilities.
     VkSurfaceCapabilitiesKHR surfaceCaps{};
     chk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(devices[deviceIndex], surface, &surfaceCaps));
+
+    // Swapchain setup.
+    VkExtent2D swapchainExtent{surfaceCaps.currentExtent};
+    swapchainExtent = {.width = static_cast<uint32_t>(windowWidth), .height = static_cast<uint32_t>(windowHeight)};
+
+    const VkFormat imageFormat{VK_FORMAT_B8G8R8A8_SRGB};
+    VkSwapchainCreateInfoKHR swapchainCI{.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+                                         .surface = surface,
+                                         .minImageCount = surfaceCaps.minImageCount,
+                                         .imageFormat = imageFormat,
+                                         .imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR,
+                                         .imageExtent{.width = swapchainExtent.width, .height = swapchainExtent.height},
+                                         .imageArrayLayers = 1,
+                                         .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                         .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+                                         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+                                         .presentMode = VK_PRESENT_MODE_FIFO_KHR};
+    chk(vkCreateSwapchainKHR(device, &swapchainCI, nullptr, &swapchain));
+
+    uint32_t imageCount{0};
+    chk(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr));
+    swapchainImages.resize(imageCount);
+    chk(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, swapchainImages.data()));
+    swapchainImageViews.resize(imageCount);
+
+    // Depth attachment setup.
+    std::vector<VkFormat> depthFormatList{VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
+    VkFormat depthFormat{VK_FORMAT_UNDEFINED};
+    for (VkFormat& format : depthFormatList)
+    {
+        VkFormatProperties2 formatProperties{.sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2};
+        vkGetPhysicalDeviceFormatProperties2(devices[deviceIndex], format, &formatProperties);
+        if (formatProperties.formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
+        {
+            depthFormat = format;
+            break;
+        }
+    }
+
+    VkImageCreateInfo depthImageCI{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = depthFormat,
+        .extent{.width = static_cast<uint32_t>(windowWidth), .height = static_cast<uint32_t>(windowHeight), .depth = 1},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+
+    VmaAllocationCreateInfo allocCI{.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+                                    .usage = VMA_MEMORY_USAGE_AUTO};
+    chk(vmaCreateImage(allocator, &depthImageCI, &allocCI, &depthImage, &depthImageAllocation, nullptr));
+
+    VkImageViewCreateInfo depthViewCI{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = depthImage,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = depthFormat,
+        .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .levelCount = 1, .layerCount = 1}};
+    chk(vkCreateImageView(device, &depthViewCI, nullptr, &depthImageView));
 
     auto running = true;
     while (running)
