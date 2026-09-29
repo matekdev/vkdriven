@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "dependencies": [
     "vulkan-headers",
+    "vulkan-utility-libraries",
     "volk",
     {
       "name": "sdl3",

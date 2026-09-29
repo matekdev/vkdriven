@@ -11,6 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 find_package(VulkanHeaders CONFIG REQUIRED)
+find_package(VulkanUtilityLibraries CONFIG REQUIRED)
 find_package(volk CONFIG REQUIRED)
 find_package(SDL3 CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
@@ -25,6 +26,7 @@ add_executable(vkdriven
 
 target_link_libraries(vkdriven PRIVATE
     Vulkan::Headers
+    Vulkan::UtilityHeaders
     volk::volk
     SDL3::SDL3
     GPUOpen::VulkanMemoryAllocator
