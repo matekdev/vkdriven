@@ -59,3 +59,8 @@ if(VKDRIVEN_SLANG_MODULES)
         VERBATIM
     )
 endif()
+
+add_custom_command(TARGET vkdriven POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:vkdriven>/assets"
+    VERBATIM
+)

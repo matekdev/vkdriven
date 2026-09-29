@@ -13,9 +13,6 @@ vcpkg_installed/
 .idea/
 *.user
 
-# Large test scenes (downloaded separately)
-assets/
-
 # Captures and profiles
 *.rdc
 *.tracy

@@ -43,6 +43,13 @@ VkImage depthImage{VK_NULL_HANDLE};
 VmaAllocation depthImageAllocation{VK_NULL_HANDLE};
 VkImageView depthImageView{VK_NULL_HANDLE};
 
+struct Vertex
+{
+    glm::vec3 pos;
+    glm::vec3 normal;
+    glm::vec2 uv;
+};
+
 static void chk(VkResult result, std::source_location location = std::source_location::current())
 {
     if (result >= VK_SUCCESS)
@@ -247,6 +254,12 @@ int main(int, char**)
         .format = depthFormat,
         .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .levelCount = 1, .layerCount = 1}};
     chk(vkCreateImageView(device, &depthViewCI, nullptr, &depthImageView));
+
+    // Model loading.
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    chk(tinyobj::LoadObj(&attrib, &shapes, &materials, nullptr, nullptr, "assets/suzanne.obj"));
 
     auto running = true;
     while (running)
