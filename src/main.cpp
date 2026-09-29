@@ -425,27 +425,28 @@ int main(int, char**)
             return 1;
         }
 
-        VkImageCreateInfo texImgCI{.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-                                   .imageType = VK_IMAGE_TYPE_2D,
-                                   .format = ktxTexture_GetVkFormat(ktxTexture),
-                                   .extent{.width = ktxTexture->baseWidth, .height = ktxTexture->baseHeight, .depth = 1},
-                                   .mipLevels = ktxTexture->numLevels,
-                                   .arrayLayers = 1,
-                                   .samples = VK_SAMPLE_COUNT_1_BIT,
-                                   .tiling = VK_IMAGE_TILING_OPTIMAL,
-                                   .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                                   .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
+        VkImageCreateInfo texImgCI{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .format = ktxTexture_GetVkFormat(ktxTexture),
+            .extent{.width = ktxTexture->baseWidth, .height = ktxTexture->baseHeight, .depth = 1},
+            .mipLevels = ktxTexture->numLevels,
+            .arrayLayers = 1,
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .tiling = VK_IMAGE_TILING_OPTIMAL,
+            .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
         VmaAllocationCreateInfo texImageAllocCI{.usage = VMA_MEMORY_USAGE_AUTO};
         chk(vmaCreateImage(allocator, &texImgCI, &texImageAllocCI, &textures[i].image, &textures[i].allocation,
                            nullptr));
 
-        VkImageViewCreateInfo texViewCI{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = textures[i].image,
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = texImgCI.format,
-            .subresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = ktxTexture->numLevels, .layerCount = 1}};
+        VkImageViewCreateInfo texViewCI{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                                        .image = textures[i].image,
+                                        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                                        .format = texImgCI.format,
+                                        .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                          .levelCount = ktxTexture->numLevels,
+                                                          .layerCount = 1}};
         chk(vkCreateImageView(device, &texViewCI, nullptr, &textures[i].view));
 
         // Upload through a host-visible staging buffer.
@@ -454,9 +455,9 @@ int main(int, char**)
         VkBufferCreateInfo imgSrcBufferCI{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                                           .size = ktxTexture->dataSize,
                                           .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT};
-        VmaAllocationCreateInfo imgSrcAllocCI{
-            .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-            .usage = VMA_MEMORY_USAGE_AUTO};
+        VmaAllocationCreateInfo imgSrcAllocCI{.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                                       VMA_ALLOCATION_CREATE_MAPPED_BIT,
+                                              .usage = VMA_MEMORY_USAGE_AUTO};
         VmaAllocationInfo imgSrcAllocInfo{};
         chk(vmaCreateBuffer(allocator, &imgSrcBufferCI, &imgSrcAllocCI, &imgSrcBuffer, &imgSrcAllocation,
                             &imgSrcAllocInfo));
@@ -476,17 +477,17 @@ int main(int, char**)
                                              .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
         chk(vkBeginCommandBuffer(cbOneTime, &cbOneTimeBI));
 
-        VkImageMemoryBarrier2 barrierTexImage{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-            .srcStageMask = VK_PIPELINE_STAGE_2_NONE,
-            .srcAccessMask = VK_ACCESS_2_NONE,
-            .dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-            .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .image = textures[i].image,
-            .subresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = ktxTexture->numLevels, .layerCount = 1}};
+        VkImageMemoryBarrier2 barrierTexImage{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                                              .srcStageMask = VK_PIPELINE_STAGE_2_NONE,
+                                              .srcAccessMask = VK_ACCESS_2_NONE,
+                                              .dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                              .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                              .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                                              .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                              .image = textures[i].image,
+                                              .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                .levelCount = ktxTexture->numLevels,
+                                                                .layerCount = 1}};
         VkDependencyInfo barrierTexInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                                         .imageMemoryBarrierCount = 1,
                                         .pImageMemoryBarriers = &barrierTexImage};
@@ -504,23 +505,24 @@ int main(int, char**)
             copyRegions.push_back({
                 .bufferOffset = mipOffset,
                 .imageSubresource{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = mip, .layerCount = 1},
-                .imageExtent{.width = ktxTexture->baseWidth >> mip, .height = ktxTexture->baseHeight >> mip, .depth = 1},
+                .imageExtent{
+                    .width = ktxTexture->baseWidth >> mip, .height = ktxTexture->baseHeight >> mip, .depth = 1},
             });
         }
         vkCmdCopyBufferToImage(cbOneTime, imgSrcBuffer, textures[i].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                static_cast<uint32_t>(copyRegions.size()), copyRegions.data());
 
-        VkImageMemoryBarrier2 barrierTexRead{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-            .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-            .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-            .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-            .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .newLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
-            .image = textures[i].image,
-            .subresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = ktxTexture->numLevels, .layerCount = 1}};
+        VkImageMemoryBarrier2 barrierTexRead{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                                             .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                             .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                             .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                                             .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+                                             .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                             .newLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+                                             .image = textures[i].image,
+                                             .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                               .levelCount = ktxTexture->numLevels,
+                                                               .layerCount = 1}};
         barrierTexInfo.pImageMemoryBarriers = &barrierTexRead;
         vkCmdPipelineBarrier2(cbOneTime, &barrierTexInfo);
         chk(vkEndCommandBuffer(cbOneTime));
@@ -673,18 +675,19 @@ int main(int, char**)
 
     VkPipelineRasterizationStateCreateInfo rasterizationState{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO, .lineWidth = 1.0f};
-    VkPipelineMultisampleStateCreateInfo multisampleState{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT};
+    VkPipelineMultisampleStateCreateInfo multisampleState{.sType =
+                                                              VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                                                          .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT};
     VkPipelineDepthStencilStateCreateInfo depthStencilState{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         .depthTestEnable = VK_TRUE,
         .depthWriteEnable = VK_TRUE,
         .depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL};
-    VkPipelineColorBlendAttachmentState blendAttachment{
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-                          VK_COLOR_COMPONENT_A_BIT};
-    VkPipelineColorBlendStateCreateInfo colorBlendState{.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+    VkPipelineColorBlendAttachmentState blendAttachment{.colorWriteMask =
+                                                            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                                            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
+    VkPipelineColorBlendStateCreateInfo colorBlendState{.sType =
+                                                            VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
                                                         .attachmentCount = 1,
                                                         .pAttachments = &blendAttachment};
 
@@ -707,19 +710,17 @@ int main(int, char**)
                                             .layout = pipelineLayout};
     chk(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline));
 
-    auto running = true;
-    while (running)
+    uint64_t lastTime{SDL_GetTicks()};
+    bool quit{false};
+    while (!quit)
     {
-        auto event = SDL_Event{};
-        while (SDL_PollEvent(&event))
-        {
-            if (event.type == SDL_EVENT_QUIT)
-            {
-                running = false;
-            }
-        }
-
-        SDL_Delay(16);
+        // Wait on fence
+        // Acquire next image
+        // Update shader data
+        // Record command buffer
+        // Submit command buffer
+        // Present image
+        // Poll events
     }
 
     SDL_DestroyWindow(window);
