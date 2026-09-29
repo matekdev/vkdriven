@@ -12,7 +12,10 @@
     "vulkan-memory-allocator",
     "glm",
     "tinyobjloader",
-    "ktx",
+    {
+      "name": "ktx",
+      "features": [ "vulkan" ]
+    },
     "shader-slang"
   ]
 }

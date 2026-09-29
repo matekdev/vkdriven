@@ -1,7 +1,31 @@
+#include <volk.h>
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <SDL3/SDL_vulkan.h>
 
+#pragma warning(push, 0)
+#define VMA_IMPLEMENTATION
+#include <vma/vk_mem_alloc.h>
+#pragma warning(pop)
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+
+#include <slang-com-ptr.h>
+#include <slang.h>
+
+#include <ktx.h>
+#include <ktxvulkan.h>
+
+#include <tiny_obj_loader.h>
+
+#include <array>
+#include <filesystem>
 #include <print>
+#include <string>
+#include <vector>
 
 int main(int, char**)
 {
