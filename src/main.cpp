@@ -79,6 +79,11 @@ struct Texture
     VkSampler sampler{VK_NULL_HANDLE};
 };
 std::array<Texture, 3> textures{};
+VkDescriptorPool descriptorPool{VK_NULL_HANDLE};
+VkDescriptorSetLayout descriptorSetLayoutTex{VK_NULL_HANDLE};
+VkDescriptorSet descriptorSetTex{VK_NULL_HANDLE};
+
+Slang::ComPtr<slang::IGlobalSession> slangGlobalSession;
 
 struct Vertex
 {
@@ -102,6 +107,16 @@ static void chk(bool result, std::source_location location = std::source_locatio
         return;
 
     std::println(stderr, "SDL error \"{}\" at {}:{}", SDL_GetError(), location.file_name(), location.line());
+    std::abort();
+}
+
+static void chk(SlangResult result, std::source_location location = std::source_location::current())
+{
+    if (SLANG_SUCCEEDED(result))
+        return;
+
+    std::println(stderr, "Slang error {:#x} at {}:{}", static_cast<uint32_t>(result), location.file_name(),
+                 location.line());
     std::abort();
 }
 
@@ -531,6 +546,82 @@ int main(int, char**)
                                       .imageView = textures[i].view,
                                       .imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL});
     }
+
+    // Descriptor indexing.
+    VkDescriptorBindingFlags descVariableFlag{VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT};
+    VkDescriptorSetLayoutBindingFlagsCreateInfo descBindingFlags{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindingFlags = &descVariableFlag};
+    VkDescriptorSetLayoutBinding descLayoutBindingTex{.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                      .descriptorCount = static_cast<uint32_t>(textures.size()),
+                                                      .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT};
+    VkDescriptorSetLayoutCreateInfo descLayoutTexCI{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                                                    .pNext = &descBindingFlags,
+                                                    .bindingCount = 1,
+                                                    .pBindings = &descLayoutBindingTex};
+    chk(vkCreateDescriptorSetLayout(device, &descLayoutTexCI, nullptr, &descriptorSetLayoutTex));
+
+    VkDescriptorPoolSize poolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                  .descriptorCount = static_cast<uint32_t>(textures.size())};
+    VkDescriptorPoolCreateInfo descPoolCI{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+                                          .maxSets = 1,
+                                          .poolSizeCount = 1,
+                                          .pPoolSizes = &poolSize};
+    chk(vkCreateDescriptorPool(device, &descPoolCI, nullptr, &descriptorPool));
+
+    uint32_t variableDescCount{static_cast<uint32_t>(textures.size())};
+    VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescCountAI{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO,
+        .descriptorSetCount = 1,
+        .pDescriptorCounts = &variableDescCount};
+    VkDescriptorSetAllocateInfo texDescSetAlloc{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+                                                .pNext = &variableDescCountAI,
+                                                .descriptorPool = descriptorPool,
+                                                .descriptorSetCount = 1,
+                                                .pSetLayouts = &descriptorSetLayoutTex};
+    chk(vkAllocateDescriptorSets(device, &texDescSetAlloc, &descriptorSetTex));
+
+    VkWriteDescriptorSet writeDescSet{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                                      .dstSet = descriptorSetTex,
+                                      .dstBinding = 0,
+                                      .descriptorCount = static_cast<uint32_t>(textureDescriptors.size()),
+                                      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                      .pImageInfo = textureDescriptors.data()};
+    vkUpdateDescriptorSets(device, 1, &writeDescSet, 0, nullptr);
+
+    // Slang compiler setup.
+    chk(slang::createGlobalSession(slangGlobalSession.writeRef()));
+    auto slangTargets{std::to_array<slang::TargetDesc>(
+        {{.format{SLANG_SPIRV}, .profile{slangGlobalSession->findProfile("spirv_1_4")}}})};
+    auto slangOptions{std::to_array<slang::CompilerOptionEntry>(
+        {{slang::CompilerOptionName::EmitSpirvDirectly, {slang::CompilerOptionValueKind::Int, 1}}})};
+    slang::SessionDesc slangSessionDesc{.targets{slangTargets.data()},
+                                        .targetCount{SlangInt(slangTargets.size())},
+                                        .defaultMatrixLayoutMode = SLANG_MATRIX_LAYOUT_COLUMN_MAJOR,
+                                        .compilerOptionEntries{slangOptions.data()},
+                                        .compilerOptionEntryCount{uint32_t(slangOptions.size())}};
+
+    // Shader loading.
+    Slang::ComPtr<slang::ISession> slangSession;
+    chk(slangGlobalSession->createSession(slangSessionDesc, slangSession.writeRef()));
+    Slang::ComPtr<slang::IBlob> slangDiagnostics;
+    Slang::ComPtr<slang::IModule> slangModule{
+        slangSession->loadModuleFromSource("shader", "shaders/shader.slang", nullptr, slangDiagnostics.writeRef())};
+    if (!slangModule)
+    {
+        std::println(stderr, "Failed to compile shaders/shader.slang:\n{}",
+                     slangDiagnostics ? static_cast<const char*>(slangDiagnostics->getBufferPointer()) : "");
+        return 1;
+    }
+    Slang::ComPtr<ISlangBlob> spirv;
+    chk(slangModule->getTargetCode(0, spirv.writeRef()));
+
+    VkShaderModuleCreateInfo shaderModuleCI{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                                            .codeSize = spirv->getBufferSize(),
+                                            .pCode = static_cast<const uint32_t*>(spirv->getBufferPointer())};
+    VkShaderModule shaderModule{VK_NULL_HANDLE};
+    chk(vkCreateShaderModule(device, &shaderModuleCI, nullptr, &shaderModule));
 
     auto running = true;
     while (running)
