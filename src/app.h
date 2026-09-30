@@ -56,10 +56,8 @@ class App
 
   private:
     [[nodiscard]] bool handleEvents();
-    [[nodiscard]] bool recreateSwapchain();
     [[nodiscard]] std::expected<GraphicsPipeline, std::string> buildPipeline() const;
     void reloadShaders();
-    void resizeViewport();
     void drawUi();
     void drawFrame();
     void updateFrameData(Frame& frame) const;
@@ -73,7 +71,6 @@ class App
     Device device_;
     Allocator allocator_;
     Swapchain swapchain_;
-    VkFormat depthFormat_;
     CommandPool commandPool_;
     FrameResources frames_;
     Scene scene_;
