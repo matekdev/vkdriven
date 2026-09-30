@@ -14,6 +14,7 @@
 
 #include "platform/window.h"
 #include "vk/allocator.h"
+#include "vk/buffer.h"
 #include "vk/check.h"
 #include "vk/device.h"
 #include "vk/handle.h"
@@ -37,9 +38,6 @@ VkImage depthImage{VK_NULL_HANDLE};
 VmaAllocation depthImageAllocation{VK_NULL_HANDLE};
 VkImageView depthImageView{VK_NULL_HANDLE};
 
-VmaAllocation vBufferAllocation{VK_NULL_HANDLE};
-VkBuffer vBuffer{VK_NULL_HANDLE};
-
 struct ShaderData
 {
     glm::mat4 projection;
@@ -49,16 +47,7 @@ struct ShaderData
     uint32_t selected{1};
 } shaderData{};
 
-struct ShaderDataBuffer
-{
-    VmaAllocation allocation{VK_NULL_HANDLE};
-    VmaAllocationInfo allocationInfo{};
-    VkBuffer buffer{VK_NULL_HANDLE};
-    VkDeviceAddress deviceAddress{};
-};
-
 constexpr uint32_t maxFramesInFlight = 2;
-std::array<ShaderDataBuffer, maxFramesInFlight> shaderDataBuffers;
 VkCommandPool commandPool{VK_NULL_HANDLE};
 std::array<VkCommandBuffer, maxFramesInFlight> commandBuffers;
 
@@ -204,38 +193,23 @@ int main(int, char**)
     }
 
     // Create buffer data for gpu.
-    VkDeviceSize vBufSize{sizeof(Vertex) * vertices.size()};
-    VkDeviceSize iBufSize{sizeof(uint16_t) * indices.size()};
-    VkBufferCreateInfo bufferCI{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-                                .size = vBufSize + iBufSize,
-                                .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT};
+    constexpr VmaAllocationCreateFlags hostWritableFlags =
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
-    VmaAllocationCreateInfo vBufferAllocCI{.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                                    VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
-                                                    VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                                           .usage = VMA_MEMORY_USAGE_AUTO};
-    VmaAllocationInfo vBufferAllocInfo{};
-    chk(vmaCreateBuffer(allocator.handle(), &bufferCI, &vBufferAllocCI, &vBuffer, &vBufferAllocation,
-                        &vBufferAllocInfo));
-
-    memcpy(vBufferAllocInfo.pMappedData, vertices.data(), vBufSize);
-    memcpy(((char*)vBufferAllocInfo.pMappedData) + vBufSize, indices.data(), iBufSize);
+    const VkDeviceSize vBufSize{sizeof(Vertex) * vertices.size()};
+    const VkDeviceSize iBufSize{sizeof(uint16_t) * indices.size()};
+    Buffer meshBuffer{allocator, vBufSize + iBufSize,
+                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, hostWritableFlags};
+    meshBuffer.write(vertices);
+    meshBuffer.write(indices, vBufSize);
 
     // Shader data buffer setup.
-    for (uint32_t i = 0; i < maxFramesInFlight; i++)
+    std::array<Buffer, maxFramesInFlight> shaderDataBuffers;
+    for (auto& shaderDataBuffer : shaderDataBuffers)
     {
-        VkBufferCreateInfo uBufferCI{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-                                     .size = sizeof(ShaderData),
-                                     .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT};
-        VmaAllocationCreateInfo uBufferAllocCI{.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                                        VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
-                                                        VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                                               .usage = VMA_MEMORY_USAGE_AUTO};
-        chk(vmaCreateBuffer(allocator.handle(), &uBufferCI, &uBufferAllocCI, &shaderDataBuffers[i].buffer,
-                            &shaderDataBuffers[i].allocation, &shaderDataBuffers[i].allocationInfo));
-        VkBufferDeviceAddressInfo uBufferBdaInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                                                 .buffer = shaderDataBuffers[i].buffer};
-        shaderDataBuffers[i].deviceAddress = vkGetBufferDeviceAddress(device.handle(), &uBufferBdaInfo);
+        shaderDataBuffer =
+            Buffer{allocator, sizeof(ShaderData), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, hostWritableFlags};
     }
 
     // Synchronization setup.
@@ -301,18 +275,9 @@ int main(int, char**)
         chk(vkCreateImageView(device.handle(), &texViewCI, nullptr, &textures[i].view));
 
         // Upload through a host-visible staging buffer.
-        VkBuffer imgSrcBuffer{VK_NULL_HANDLE};
-        VmaAllocation imgSrcAllocation{VK_NULL_HANDLE};
-        VkBufferCreateInfo imgSrcBufferCI{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-                                          .size = ktxTexture->dataSize,
-                                          .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT};
-        VmaAllocationCreateInfo imgSrcAllocCI{.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                                       VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                                              .usage = VMA_MEMORY_USAGE_AUTO};
-        VmaAllocationInfo imgSrcAllocInfo{};
-        chk(vmaCreateBuffer(allocator.handle(), &imgSrcBufferCI, &imgSrcAllocCI, &imgSrcBuffer, &imgSrcAllocation,
-                            &imgSrcAllocInfo));
-        memcpy(imgSrcAllocInfo.pMappedData, ktxTexture->pData, ktxTexture->dataSize);
+        Buffer stagingBuffer{allocator, ktxTexture->dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                             VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT};
+        stagingBuffer.write(std::span{ktxTexture->pData, ktxTexture->dataSize});
 
         const auto fenceOneTime = createFence(device.handle());
 
@@ -358,8 +323,9 @@ int main(int, char**)
                     .width = ktxTexture->baseWidth >> mip, .height = ktxTexture->baseHeight >> mip, .depth = 1},
             });
         }
-        vkCmdCopyBufferToImage(cbOneTime, imgSrcBuffer, textures[i].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                               static_cast<uint32_t>(copyRegions.size()), copyRegions.data());
+        vkCmdCopyBufferToImage(cbOneTime, stagingBuffer.handle(), textures[i].image,
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(copyRegions.size()),
+                               copyRegions.data());
 
         VkImageMemoryBarrier2 barrierTexRead{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
                                              .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
@@ -384,7 +350,6 @@ int main(int, char**)
         chk(vkQueueSubmit2(device.queue(), 1, &oneTimeSI, fenceOneTime.get()));
         chk(vkWaitForFences(device.handle(), 1, fenceOneTime.ptr(), VK_TRUE, UINT64_MAX));
         vkFreeCommandBuffers(device.handle(), commandPool, 1, &cbOneTime);
-        vmaDestroyBuffer(allocator.handle(), imgSrcBuffer, imgSrcAllocation);
 
         VkSamplerCreateInfo samplerCI{.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
                                       .magFilter = VK_FILTER_LINEAR,
@@ -692,7 +657,7 @@ int main(int, char**)
             shaderData.model[i] =
                 glm::translate(glm::mat4(1.0f), instancePos) * glm::mat4_cast(glm::quat(objectRotations[i]));
         }
-        memcpy(shaderDataBuffers[frameIndex].allocationInfo.pMappedData, &shaderData, sizeof(ShaderData));
+        shaderDataBuffers[frameIndex].write(std::span{&shaderData, 1});
 
         // Record command buffer
         VkCommandBuffer cb = commandBuffers[frameIndex];
@@ -761,10 +726,12 @@ int main(int, char**)
         vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSetTex, 0,
                                 nullptr);
         VkDeviceSize vOffset{0};
-        vkCmdBindVertexBuffers(cb, 0, 1, &vBuffer, &vOffset);
-        vkCmdBindIndexBuffer(cb, vBuffer, vBufSize, VK_INDEX_TYPE_UINT16);
+        const VkBuffer meshBufferHandle = meshBuffer.handle();
+        vkCmdBindVertexBuffers(cb, 0, 1, &meshBufferHandle, &vOffset);
+        vkCmdBindIndexBuffer(cb, meshBufferHandle, vBufSize, VK_INDEX_TYPE_UINT16);
+        const VkDeviceAddress shaderDataAddress = shaderDataBuffers[frameIndex].deviceAddress();
         vkCmdPushConstants(cb, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VkDeviceAddress),
-                           &shaderDataBuffers[frameIndex].deviceAddress);
+                           &shaderDataAddress);
         vkCmdDrawIndexed(cb, static_cast<uint32_t>(indexCount), 3, 0, 0, 0);
         vkCmdEndRendering(cb);
 
@@ -823,17 +790,12 @@ int main(int, char**)
 
     // Cleaning up
     device.waitIdle();
-    for (uint32_t i = 0; i < maxFramesInFlight; i++)
-    {
-        vmaDestroyBuffer(allocator.handle(), shaderDataBuffers[i].buffer, shaderDataBuffers[i].allocation);
-    }
     vkDestroyImageView(device.handle(), depthImageView, nullptr);
     vmaDestroyImage(allocator.handle(), depthImage, depthImageAllocation);
     for (auto view : swapchainImageViews)
     {
         vkDestroyImageView(device.handle(), view, nullptr);
     }
-    vmaDestroyBuffer(allocator.handle(), vBuffer, vBufferAllocation);
     for (auto& texture : textures)
     {
         vkDestroyImageView(device.handle(), texture.view, nullptr);

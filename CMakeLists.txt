@@ -26,6 +26,8 @@ add_executable(vkdriven
     src/platform/window.h
     src/vk/allocator.cpp
     src/vk/allocator.h
+    src/vk/buffer.cpp
+    src/vk/buffer.h
     src/vk/check.h
     src/vk/device.cpp
     src/vk/device.h
