@@ -2,7 +2,6 @@
 
 #include <SDL3/SDL.h>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/quaternion.hpp>
 
 #include "vk/check.h"
 
@@ -16,6 +15,8 @@
 
 namespace
 {
+
+constexpr const char* scenePath = "assets/Suzanne/Suzanne.gltf";
 
 template <typename T> T orThrow(std::expected<T, std::string> result)
 {
@@ -53,32 +54,20 @@ Image createDepthImage(const Allocator& allocator, VkFormat format, VkExtent2D e
     return Image{allocator, depthImageCI, VK_IMAGE_ASPECT_DEPTH_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
 }
 
-std::vector<Texture> loadTextures(const Device& device, const Allocator& allocator, const CommandPool& commandPool,
-                                  uint32_t count)
-{
-    std::vector<Texture> textures;
-    for (uint32_t i = 0; i < count; i++)
-    {
-        textures.push_back(
-            orThrow(Texture::loadKtx(device, allocator, commandPool, std::format("assets/suzanne{}.ktx", i))));
-    }
-    return textures;
-}
-
 } // namespace
 
 App::App()
     : window_{"vkdriven", 1280, 720}, instance_{"vkdriven", window_.requiredInstanceExtensions()},
       surface_{instance_, window_}, device_{instance_, surface_}, allocator_{instance_, device_},
       swapchain_{device_, surface_, window_}, depthFormat_{findDepthFormat(device_.physical())},
-      depthImage_{createDepthImage(allocator_, depthFormat_, swapchain_.extent())},
-      mesh_{orThrow(Mesh::loadObj(allocator_, "assets/suzanne.obj"))}, commandPool_{device_},
-      frames_{device_, allocator_, commandPool_, sizeof(ShaderData)},
-      textures_{loadTextures(device_, allocator_, commandPool_, textureCount)},
-      bindlessTextures_{device_, textureCount}, shaderDirectory_{VKDRIVEN_SHADER_DIR},
+      depthImage_{createDepthImage(allocator_, depthFormat_, swapchain_.extent())}, commandPool_{device_},
+      frames_{device_, allocator_, commandPool_, sizeof(FrameData)},
+      scene_{orThrow(Scene::loadGltf(allocator_, commandPool_, scenePath))}, shaderDirectory_{VKDRIVEN_SHADER_DIR},
       pipeline_{orThrow(buildPipeline())}, shaderWatcher_{shaderDirectory_}
 {
-    bindlessTextures_.write(textures_);
+    std::println("Loaded {}: {} meshes, {} primitives, {} vertices, {} indices, {} draws, {} transforms", scenePath,
+                 scene_.meshes().size(), scene_.primitives().size(), scene_.vertexCount(), scene_.indexCount(),
+                 scene_.draws().size(), scene_.transformCount());
 }
 
 App::~App()
@@ -88,14 +77,9 @@ App::~App()
 
 void App::run()
 {
-    uint64_t lastTime = SDL_GetTicks();
     while (true)
     {
-        const uint64_t now = SDL_GetTicks();
-        const float elapsedTime = static_cast<float>(now - lastTime) / 1000.0f;
-        lastTime = now;
-
-        if (!handleEvents(elapsedTime))
+        if (!handleEvents())
             return;
 
         if (shaderWatcher_.poll() || reloadRequested_)
@@ -114,36 +98,16 @@ void App::run()
     }
 }
 
-bool App::handleEvents(float elapsedTime)
+bool App::handleEvents()
 {
     for (SDL_Event event; SDL_PollEvent(&event);)
     {
         if (event.type == SDL_EVENT_QUIT)
             return false;
 
-        if (event.type == SDL_EVENT_MOUSE_MOTION && (event.motion.state & SDL_BUTTON_LMASK))
+        if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F5)
         {
-            objectRotations_[shaderData_.selected].x -= event.motion.yrel * elapsedTime;
-            objectRotations_[shaderData_.selected].y += event.motion.xrel * elapsedTime;
-        }
-        if (event.type == SDL_EVENT_MOUSE_WHEEL)
-        {
-            cameraPosition_.z += event.wheel.y * elapsedTime * 10.0f;
-        }
-        if (event.type == SDL_EVENT_KEY_DOWN)
-        {
-            if (event.key.key == SDLK_PLUS || event.key.key == SDLK_KP_PLUS)
-            {
-                shaderData_.selected = (shaderData_.selected + 1) % 3;
-            }
-            if (event.key.key == SDLK_MINUS || event.key.key == SDLK_KP_MINUS)
-            {
-                shaderData_.selected = (shaderData_.selected + 2) % 3;
-            }
-            if (event.key.key == SDLK_F5)
-            {
-                reloadRequested_ = true;
-            }
+            reloadRequested_ = true;
         }
         if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
         {
@@ -166,13 +130,16 @@ bool App::recreateSwapchain()
 
 std::expected<GraphicsPipeline, std::string> App::buildPipeline() const
 {
-    const VkDescriptorSetLayout textureSetLayout = bindlessTextures_.layout();
-    return shaderCompiler_.compile(device_, shaderDirectory_ / "shader.slang")
+    return shaderCompiler_.compile(device_, shaderDirectory_ / "scene.slang")
         .transform(
             [&](const DeviceHandle<VkShaderModule>& shaderModule)
             {
-                return GraphicsPipeline{device_, shaderModule.get(), std::span{&textureSetLayout, 1},
-                                        swapchain_.format(), depthFormat_};
+                return GraphicsPipeline{device_,
+                                        shaderModule.get(),
+                                        std::span<const VkDescriptorSetLayout>{},
+                                        sizeof(DrawConstants),
+                                        swapchain_.format(),
+                                        depthFormat_};
             });
 }
 
@@ -209,7 +176,7 @@ void App::drawFrame()
     }
     chk(vkResetFences(device_.handle(), 1, frame.inFlight.ptr()));
 
-    updateShaderData(frame);
+    updateFrameData(frame);
     recordCommandBuffer(frame.commandBuffer, imageIndex, frame);
 
     // Submit command buffer
@@ -238,19 +205,20 @@ void App::drawFrame()
     }
 }
 
-void App::updateShaderData(Frame& frame)
+void App::updateFrameData(Frame& frame) const
 {
     const VkExtent2D extent = swapchain_.extent();
     const float aspect{static_cast<float>(extent.width) / static_cast<float>(extent.height)};
-    shaderData_.projection = glm::perspective(glm::radians(45.0f), aspect, 32.0f, 0.1f);
-    shaderData_.view = glm::translate(glm::mat4(1.0f), cameraPosition_);
-    for (size_t i = 0; i < objectRotations_.size(); i++)
-    {
-        const glm::vec3 instancePos{(static_cast<float>(i) - 1.0f) * 3.0f, 0.0f, 0.0f};
-        shaderData_.model[i] =
-            glm::translate(glm::mat4(1.0f), instancePos) * glm::mat4_cast(glm::quat(objectRotations_[i]));
-    }
-    frame.shaderData.write(std::span{&shaderData_, 1});
+
+    // Reverse-Z: near and far are swapped so depth 1 is the near plane and 0 is the far plane.
+    glm::mat4 projection = glm::perspective(glm::radians(60.0f), aspect, 100.0f, 0.1f);
+    // glTF is +Y up but Vulkan's clip space has +Y pointing down the screen.
+    projection[1][1] *= -1.0f;
+    const glm::mat4 view =
+        glm::lookAt(glm::vec3{0.0f, 0.0f, 3.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f});
+
+    const FrameData frameData{.viewProjection = projection * view};
+    frame.shaderData.write(std::span{&frameData, 1});
 }
 
 void App::recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, const Frame& frame) const
@@ -318,16 +286,20 @@ void App::recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, const Fra
     vkCmdSetScissor(cb, 0, 1, &scissor);
 
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.handle());
-    const VkDescriptorSet textureSet = bindlessTextures_.set();
-    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.layout(), 0, 1, &textureSet, 0, nullptr);
-    VkDeviceSize vOffset{0};
-    const VkBuffer meshBuffer = mesh_.buffer();
-    vkCmdBindVertexBuffers(cb, 0, 1, &meshBuffer, &vOffset);
-    vkCmdBindIndexBuffer(cb, meshBuffer, mesh_.indexOffset(), Mesh::indexType);
-    const VkDeviceAddress shaderDataAddress = frame.shaderData.deviceAddress();
-    vkCmdPushConstants(cb, pipeline_.layout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VkDeviceAddress),
-                       &shaderDataAddress);
-    vkCmdDrawIndexed(cb, mesh_.indexCount(), 3, 0, 0, 0);
+    const VkDeviceSize vertexOffset{0};
+    const VkBuffer vertexBuffer = scene_.vertexBuffer();
+    vkCmdBindVertexBuffers(cb, 0, 1, &vertexBuffer, &vertexOffset);
+    vkCmdBindIndexBuffer(cb, scene_.indexBuffer(), 0, Scene::indexType);
+
+    for (const Draw& draw : scene_.draws())
+    {
+        const Primitive& primitive = scene_.primitives()[draw.primitiveIndex];
+        const DrawConstants constants{.frame = frame.shaderData.deviceAddress(),
+                                      .transforms = scene_.transformsAddress(),
+                                      .transformIndex = draw.transformIndex};
+        vkCmdPushConstants(cb, pipeline_.layout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(DrawConstants), &constants);
+        vkCmdDrawIndexed(cb, primitive.indexCount, 1, primitive.firstIndex, primitive.vertexOffset, 0);
+    }
     vkCmdEndRendering(cb);
 
     VkImageMemoryBarrier2 barrierPresent{

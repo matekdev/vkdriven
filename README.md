@@ -14,7 +14,7 @@ The goal is to render huge scenes efficiently by moving culling and draw submiss
 - Visual Studio 2026 with the **Desktop development with C++** workload. It includes MSVC, CMake, Ninja and vcpkg.
 - [Vulkan SDK](https://vulkan.lunarg.com/sdk/home). Needed at runtime for the validation layers.
 
-All libraries come from vcpkg and are installed on the first configure. The set matches [How to Vulkan](https://www.howtovulkan.com/), which the Vulkan core follows: SDL3, volk, VMA, glm, tinyobjloader, KTX-Software and Slang.
+All libraries come from vcpkg and are installed on the first configure. The Vulkan core follows [How to Vulkan](https://www.howtovulkan.com/): SDL3, volk, VMA, glm, KTX-Software and Slang, plus fastgltf and stb for loading glTF scenes.
 
 **Visual Studio:** File → Open → Folder, pick the repo, then choose the `Debug` or `Release` preset.
 

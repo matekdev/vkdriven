@@ -51,14 +51,14 @@ Presets: `debug` and `release` (RelWithDebInfo). vcpkg installs all dependencies
 - `src/app.h/.cpp`: `App` owns the whole renderer and the frame loop. Its members are declared in dependency order, so destruction happens in the right order with no manual cleanup.
 - `src/vk/`: thin RAII wrappers over Vulkan objects (`Instance`, `Device`, `Swapchain`, `Buffer`, `Image`, `DeviceHandle<T>` for simple handles, etc.). They expose the raw handles; render code still calls `vkCmd*` directly.
 - `src/platform/`: SDL window and the file watcher used for shader hot-reload.
-- `src/scene/`: asset loading (`Mesh`, and `Vertex` with its vertex-input description).
+- `src/scene/`: glTF loading (`parseGltf`) and the `Scene`: one shared vertex/index buffer, the primitive and draw lists, and the world-transforms buffer. `Vertex` (with its vertex-input description) lives here too.
 - New `.cpp`/`.h` files must be added to `add_executable` in `CMakeLists.txt`.
 - `shaders/`: Slang shaders, compiled to SPIR-V at runtime through the Slang API. There's no build-time shader step. CMake copies `shaders/` next to the executable. Debug builds read them from the source tree instead (`VKDRIVEN_SHADER_DIR`) and hot-reload on save or F5.
 - `docs/roadmap.md`: phased checklist. Check items off when they're done.
 
 ## Dependencies
 
-All from vcpkg (`vcpkg.json`, pinned in `vcpkg-configuration.json`). It's the same set How to Vulkan uses: Vulkan headers, volk, SDL3, VulkanMemoryAllocator, glm, tinyobjloader, KTX-Software (`ktx`), Slang (`shader-slang`). Later phases add fastgltf (P2), meshoptimizer (P4), and ImGui + Tracy (end of P1).
+All from vcpkg (`vcpkg.json`, pinned in `vcpkg-configuration.json`). Vulkan headers, volk, SDL3, VulkanMemoryAllocator, glm, KTX-Software (`ktx`), Slang (`shader-slang`), fastgltf (glTF loading) and stb (`stb_image` for PNG/JPEG). Later phases add meshoptimizer (P4), and ImGui + Tracy (end of P1).
 
 - **volk loads all Vulkan functions.** Link `Vulkan::Headers`, never `Vulkan::Vulkan` (the loader), or the loader's exported symbols clash with volk's function pointers.
 - **ImGui with volk:** vcpkg's prebuilt ImGui Vulkan backend links the loader. When ImGui is added, compile `imgui_impl_vulkan.cpp` into the project with `IMGUI_IMPL_VULKAN_USE_VOLK` instead of using the `vulkan-binding` feature.
