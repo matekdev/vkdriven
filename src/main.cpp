@@ -19,6 +19,8 @@
 #include <tiny_obj_loader.h>
 
 #include "vk/check.h"
+#include "vk/handle.h"
+#include "vk/sync.h"
 
 #include <array>
 #include <cstddef>
@@ -64,9 +66,6 @@ constexpr uint32_t maxFramesInFlight = 2;
 std::array<ShaderDataBuffer, maxFramesInFlight> shaderDataBuffers;
 VkCommandPool commandPool{VK_NULL_HANDLE};
 std::array<VkCommandBuffer, maxFramesInFlight> commandBuffers;
-std::array<VkFence, maxFramesInFlight> fences;
-std::array<VkSemaphore, maxFramesInFlight> imageAcquiredSemaphores;
-std::vector<VkSemaphore> renderCompleteSemaphores;
 
 struct Texture
 {
@@ -356,17 +355,17 @@ int main(int, char**)
     }
 
     // Synchronization setup.
-    VkSemaphoreCreateInfo semaphoreCI{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-    VkFenceCreateInfo fenceCI{.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = VK_FENCE_CREATE_SIGNALED_BIT};
-    for (auto i = 0; i < maxFramesInFlight; i++)
+    std::array<DeviceHandle<VkFence>, maxFramesInFlight> fences;
+    std::array<DeviceHandle<VkSemaphore>, maxFramesInFlight> imageAcquiredSemaphores;
+    for (uint32_t i = 0; i < maxFramesInFlight; i++)
     {
-        chk(vkCreateFence(device, &fenceCI, nullptr, &fences[i]));
-        chk(vkCreateSemaphore(device, &semaphoreCI, nullptr, &imageAcquiredSemaphores[i]));
+        fences[i] = createFence(device, VK_FENCE_CREATE_SIGNALED_BIT);
+        imageAcquiredSemaphores[i] = createSemaphore(device);
     }
-    renderCompleteSemaphores.resize(swapchainImages.size());
-    for (auto& semaphore : renderCompleteSemaphores)
+    std::vector<DeviceHandle<VkSemaphore>> renderCompleteSemaphores;
+    for (size_t i = 0; i < swapchainImages.size(); i++)
     {
-        chk(vkCreateSemaphore(device, &semaphoreCI, nullptr, &semaphore));
+        renderCompleteSemaphores.push_back(createSemaphore(device));
     }
 
     // Command buffers
@@ -431,9 +430,7 @@ int main(int, char**)
                             &imgSrcAllocInfo));
         memcpy(imgSrcAllocInfo.pMappedData, ktxTexture->pData, ktxTexture->dataSize);
 
-        VkFenceCreateInfo fenceOneTimeCI{.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-        VkFence fenceOneTime{VK_NULL_HANDLE};
-        chk(vkCreateFence(device, &fenceOneTimeCI, nullptr, &fenceOneTime));
+        const auto fenceOneTime = createFence(device);
 
         VkCommandBuffer cbOneTime{VK_NULL_HANDLE};
         VkCommandBufferAllocateInfo cbOneTimeAI{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -500,9 +497,8 @@ int main(int, char**)
         VkSubmitInfo2 oneTimeSI{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                                 .commandBufferInfoCount = 1,
                                 .pCommandBufferInfos = &cbOneTimeSubmitInfo};
-        chk(vkQueueSubmit2(queue, 1, &oneTimeSI, fenceOneTime));
-        chk(vkWaitForFences(device, 1, &fenceOneTime, VK_TRUE, UINT64_MAX));
-        vkDestroyFence(device, fenceOneTime, nullptr);
+        chk(vkQueueSubmit2(queue, 1, &oneTimeSI, fenceOneTime.get()));
+        chk(vkWaitForFences(device, 1, fenceOneTime.ptr(), VK_TRUE, UINT64_MAX));
         vkFreeCommandBuffers(device, commandPool, 1, &cbOneTime);
         vmaDestroyBuffer(allocator, imgSrcBuffer, imgSrcAllocation);
 
@@ -772,14 +768,10 @@ int main(int, char**)
                 chk(vkCreateImageView(device, &viewCI, nullptr, &swapchainImageViews[i]));
             }
 
-            for (auto semaphore : renderCompleteSemaphores)
+            renderCompleteSemaphores.clear();
+            for (uint32_t i = 0; i < imageCount; i++)
             {
-                vkDestroySemaphore(device, semaphore, nullptr);
-            }
-            renderCompleteSemaphores.resize(imageCount);
-            for (auto& semaphore : renderCompleteSemaphores)
-            {
-                chk(vkCreateSemaphore(device, &semaphoreCI, nullptr, &semaphore));
+                renderCompleteSemaphores.push_back(createSemaphore(device));
             }
 
             vkDestroyImageView(device, depthImageView, nullptr);
@@ -791,11 +783,11 @@ int main(int, char**)
         }
 
         // Wait on fence
-        chk(vkWaitForFences(device, 1, &fences[frameIndex], VK_TRUE, UINT64_MAX));
+        chk(vkWaitForFences(device, 1, fences[frameIndex].ptr(), VK_TRUE, UINT64_MAX));
 
         // Acquire next image
         const VkResult acquireResult = vkAcquireNextImageKHR(
-            device, swapchain, UINT64_MAX, imageAcquiredSemaphores[frameIndex], VK_NULL_HANDLE, &imageIndex);
+            device, swapchain, UINT64_MAX, imageAcquiredSemaphores[frameIndex].get(), VK_NULL_HANDLE, &imageIndex);
         if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR)
         {
             updateSwapchain = true;
@@ -806,7 +798,7 @@ int main(int, char**)
         {
             updateSwapchain = true;
         }
-        chk(vkResetFences(device, 1, &fences[frameIndex]));
+        chk(vkResetFences(device, 1, fences[frameIndex].ptr()));
 
         // Update shader data
         const float aspect{static_cast<float>(swapchainExtent.width) / static_cast<float>(swapchainExtent.height)};
@@ -912,12 +904,12 @@ int main(int, char**)
 
         // Submit command buffer
         VkSemaphoreSubmitInfo waitSemaphoreInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                                                .semaphore = imageAcquiredSemaphores[frameIndex],
+                                                .semaphore = imageAcquiredSemaphores[frameIndex].get(),
                                                 .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT};
         VkCommandBufferSubmitInfo commandBufferSubmitInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
                                                           .commandBuffer = cb};
         VkSemaphoreSubmitInfo signalSemaphoreInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                                                  .semaphore = renderCompleteSemaphores[imageIndex],
+                                                  .semaphore = renderCompleteSemaphores[imageIndex].get(),
                                                   .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT};
         VkSubmitInfo2 submitInfo{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                                  .waitSemaphoreInfoCount = 1,
@@ -926,13 +918,13 @@ int main(int, char**)
                                  .pCommandBufferInfos = &commandBufferSubmitInfo,
                                  .signalSemaphoreInfoCount = 1,
                                  .pSignalSemaphoreInfos = &signalSemaphoreInfo};
-        chk(vkQueueSubmit2(queue, 1, &submitInfo, fences[frameIndex]));
+        chk(vkQueueSubmit2(queue, 1, &submitInfo, fences[frameIndex].get()));
         frameIndex = (frameIndex + 1) % maxFramesInFlight;
 
         // Present image
         VkPresentInfoKHR presentInfo{.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                                      .waitSemaphoreCount = 1,
-                                     .pWaitSemaphores = &renderCompleteSemaphores[imageIndex],
+                                     .pWaitSemaphores = renderCompleteSemaphores[imageIndex].ptr(),
                                      .swapchainCount = 1,
                                      .pSwapchains = &swapchain,
                                      .pImageIndices = &imageIndex};
@@ -951,14 +943,11 @@ int main(int, char**)
     chk(vkDeviceWaitIdle(device));
     for (uint32_t i = 0; i < maxFramesInFlight; i++)
     {
-        vkDestroyFence(device, fences[i], nullptr);
-        vkDestroySemaphore(device, imageAcquiredSemaphores[i], nullptr);
+        fences[i].reset();
+        imageAcquiredSemaphores[i].reset();
         vmaDestroyBuffer(allocator, shaderDataBuffers[i].buffer, shaderDataBuffers[i].allocation);
     }
-    for (auto semaphore : renderCompleteSemaphores)
-    {
-        vkDestroySemaphore(device, semaphore, nullptr);
-    }
+    renderCompleteSemaphores.clear();
     vkDestroyImageView(device, depthImageView, nullptr);
     vmaDestroyImage(allocator, depthImage, depthImageAllocation);
     for (auto view : swapchainImageViews)
