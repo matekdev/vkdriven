@@ -28,3 +28,11 @@ VkExtent2D Window::sizeInPixels() const
     chk(SDL_GetWindowSizeInPixels(window_.get(), &width, &height));
     return {.width = static_cast<uint32_t>(width), .height = static_cast<uint32_t>(height)};
 }
+
+std::span<const char* const> Window::requiredInstanceExtensions() const
+{
+    uint32_t count = 0;
+    const char* const* extensions = SDL_Vulkan_GetInstanceExtensions(&count);
+    chk(extensions != nullptr);
+    return {extensions, count};
+}
