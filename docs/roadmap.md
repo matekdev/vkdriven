@@ -85,7 +85,7 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 ### P2: Assets & scene (~20h, 4 weeks)
 - [x] Add **fastgltf** and move from OBJ (tinyobjloader) to glTF 2.0 loading
 - [ ] Textures: KTX2 via KTX-Software, with BC7/BC5 compression and full mip chains (use `toktx` or `basisu` offline). Fall back to generating mips at runtime.
-- [ ] **One big vertex buffer + one big index buffer** for the whole scene (sets up GPU-driven rendering)
+- [x] **One big vertex buffer + one big index buffer** for the whole scene (sets up GPU-driven rendering)
 - [ ] Flattened GPU scene data in SSBOs: transforms, materials, and a per-draw array `{meshIndex, materialIndex, transformIndex}`
 - [ ] Vertex quantization/compression with meshoptimizer (optional)
 - [ ] Test scenes: Sponza, Intel Sponza, Amazon Lumberyard Bistro
