@@ -2,7 +2,7 @@
 
 **Current scope: P0 through P5.** P6, P7 and the stretch items are listed for later and aren't part of the current plan.
 
-vkdriven is a GPU-driven renderer for very large scenes, built on a modern explicit API.
+vkdriven is a renderer built on a modern explicit API.
 
 ---
 
@@ -26,7 +26,7 @@ vkdriven is a GPU-driven renderer for very large scenes, built on a modern expli
 
 ## 2. Scope
 
-A **renderer for very large scenes** (a "massive model viewer"). It loads big glTF scenes or CAD-like assemblies and renders them fast, with the GPU choosing what to draw.
+A **renderer**: it loads glTF models and scenes and draws them with modern Vulkan.
 
 **Renderer only:**
 - No editor, ECS, physics, audio or scripting. ImGui debug panels are enough.

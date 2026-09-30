@@ -1,8 +1,6 @@
 # vkdriven
 
-A GPU-driven Vulkan 1.3 renderer for very large scenes.
-
-The goal is to render huge scenes efficiently by moving culling and draw submission onto the GPU, with profiling and performance numbers for every feature.
+A Vulkan 1.3 renderer, built up one feature at a time, with profiling and performance numbers for every feature.
 
 ## Status
 
