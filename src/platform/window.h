@@ -37,7 +37,7 @@ class Window
     [[nodiscard]] VkExtent2D sizeInPixels() const;
     [[nodiscard]] std::span<const char* const> requiredInstanceExtensions() const;
 
-    // Drains SDL's event queue without blocking.
+    // Drains SDL's event queue without blocking, forwarding every event to ImGui.
     [[nodiscard]] WindowEvents pollEvents() const;
     // Sleeps until the next event arrives, e.g. while the window is minimized.
     void waitForEvent() const;
