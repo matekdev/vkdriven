@@ -6,8 +6,17 @@ UseTab: Never
 ColumnLimit: 120
 PointerAlignment: Left
 BreakBeforeBraces: Allman
-SortIncludes: Never
-IncludeBlocks: Preserve
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<volk\.h>$'
+    Priority: 1
+  - Regex: '^<.*\.(h|hpp)>$'
+    Priority: 2
+  - Regex: '^"'
+    Priority: 3
+  - Regex: '^<[a-z_]+>$'
+    Priority: 4
 AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
