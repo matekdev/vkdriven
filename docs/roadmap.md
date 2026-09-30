@@ -37,9 +37,8 @@ A **renderer**: it loads glTF models and scenes and draws them with modern Vulka
 ## 3. Development rules
 
 - [ ] **Short milestones.** Each phase is 3–6 weeks. If a milestone is heading past 8 weeks, cut scope.
-- [ ] **Each milestone ends with 4 things:** a git tag, a README screenshot or gif, a short blog post, and **GPU timings**.
+- [ ] **Each milestone ends with 3 things:** a git tag, a README screenshot or gif, and a short blog post.
 - [ ] **Get it working, then generalize.** Hardcode the first version. Only refactor once something is needed a second time.
-- [ ] **Measure everything.** Every feature gets a timestamp query and a number in ImGui.
 - [ ] **Keep the build green.** CI builds on every push. The validation layers should report zero errors, always.
 - [ ] **When stuck, write a smaller test first.** Get the technique working in isolation before integrating it.
 
@@ -79,7 +78,8 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 - [ ] Beyond the tutorial: dedicated compute + transfer queues, staging uploads with queue-family ownership transfer
 - [ ] Beyond the tutorial: compute pipelines, and a `VkPipelineCache` saved to disk
 - [x] Beyond the tutorial: shader hot-reload (watch the file, recompile with the Slang API, rebuild the pipeline). Runtime compilation makes this easy.
-- [ ] Add ImGui (backend built against volk) and Tracy. Fly camera, ImGui stats (frame time, GPU time).
+- [x] Add ImGui (backend built against volk), with a stats panel
+- [ ] Fly camera
 - [ ] 📝 Blog: "Getting started with Vulkan 1.3: what's actually different"
 
 ### P2: Assets & scene (~20h, 4 weeks)
