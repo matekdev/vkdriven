@@ -12,23 +12,19 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
-
-#include <slang-com-ptr.h>
-#include <slang.h>
-
 #include <ktx.h>
 #include <ktxvulkan.h>
-
+#include <slang-com-ptr.h>
+#include <slang.h>
 #include <tiny_obj_loader.h>
 
-#include <vulkan/vk_enum_string_helper.h>
+#include "vk/check.h"
 
 #include <array>
 #include <cstddef>
 #include <cstdlib>
 #include <filesystem>
 #include <print>
-#include <source_location>
 #include <string>
 #include <vector>
 
@@ -95,34 +91,6 @@ struct Vertex
     glm::vec3 normal;
     glm::vec2 uv;
 };
-
-static void chk(VkResult result, std::source_location location = std::source_location::current())
-{
-    if (result >= VK_SUCCESS)
-        return;
-
-    std::println(stderr, "Vulkan error {} at {}:{}", string_VkResult(result), location.file_name(), location.line());
-    std::abort();
-}
-
-static void chk(bool result, std::source_location location = std::source_location::current())
-{
-    if (result)
-        return;
-
-    std::println(stderr, "SDL error \"{}\" at {}:{}", SDL_GetError(), location.file_name(), location.line());
-    std::abort();
-}
-
-static void chk(SlangResult result, std::source_location location = std::source_location::current())
-{
-    if (SLANG_SUCCEEDED(result))
-        return;
-
-    std::println(stderr, "Slang error {:#x} at {}:{}", static_cast<uint32_t>(result), location.file_name(),
-                 location.line());
-    std::abort();
-}
 
 int main(int, char**)
 {

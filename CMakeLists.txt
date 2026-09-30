@@ -22,7 +22,10 @@ find_package(slang CONFIG REQUIRED)
 
 add_executable(vkdriven
     src/main.cpp
+    src/vk/check.h
 )
+
+target_include_directories(vkdriven PRIVATE src)
 
 target_link_libraries(vkdriven PRIVATE
     Vulkan::Headers
