@@ -21,6 +21,8 @@ find_package(Ktx CONFIG REQUIRED)
 find_package(slang CONFIG REQUIRED)
 
 add_executable(vkdriven
+    src/app.cpp
+    src/app.h
     src/main.cpp
     src/platform/file_watcher.cpp
     src/platform/file_watcher.h
