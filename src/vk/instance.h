@@ -6,6 +6,7 @@
 
 // Connection to the Vulkan driver. Loads the function pointers through volk,
 // so nothing Vulkan works until one of these exists.
+// Debug builds also enable the Khronos validation layer and print its messages to stderr.
 class Instance
 {
   public:
@@ -24,4 +25,5 @@ class Instance
 
   private:
     VkInstance instance_{VK_NULL_HANDLE};
+    VkDebugUtilsMessengerEXT debugMessenger_{VK_NULL_HANDLE};
 };
