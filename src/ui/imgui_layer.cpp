@@ -10,6 +10,8 @@
 #include "vk/check.h"
 #include "vk/device.h"
 #include "vk/instance.h"
+#include "vk/swapchain.h"
+#include "vk/sync.h"
 
 #include <cstdint>
 #include <expected>
@@ -101,7 +103,40 @@ void ImGuiLayer::endFrame() const
     ImGui::Render();
 }
 
-void ImGuiLayer::record(VkCommandBuffer cb) const
+void ImGuiLayer::record(VkCommandBuffer cb, const Swapchain& swapchain, uint32_t imageIndex) const
 {
+    imageBarrier(cb, {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                      .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                      .srcAccessMask = VK_ACCESS_2_NONE,
+                      .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                      .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                      .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                      .image = swapchain.image(imageIndex),
+                      .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)});
+
+    VkRenderingAttachmentInfo colorAttachmentInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                                                  .imageView = swapchain.view(imageIndex),
+                                                  .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                                                  .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                                  .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                                                  .clearValue{.color{0.0f, 0.0f, 0.0f, 1.0f}}};
+    VkRenderingInfo renderingInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                  .renderArea{.extent = swapchain.extent()},
+                                  .layerCount = 1,
+                                  .colorAttachmentCount = 1,
+                                  .pColorAttachments = &colorAttachmentInfo};
+    vkCmdBeginRendering(cb, &renderingInfo);
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cb);
+    vkCmdEndRendering(cb);
+
+    imageBarrier(cb, {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                      .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                      .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                      .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                      .dstAccessMask = VK_ACCESS_2_NONE,
+                      .oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                      .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                      .image = swapchain.image(imageIndex),
+                      .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)});
 }

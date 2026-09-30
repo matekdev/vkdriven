@@ -6,11 +6,12 @@
 
 class Device;
 class Instance;
+class Swapchain;
 class Window;
 
 // Owns the ImGui context plus its SDL3 and Vulkan backends. The Vulkan backend creates its own
-// pipeline and descriptor pool, and draws inside whatever dynamic rendering pass is active.
-// The pipeline is built for a single color attachment of the given format with no depth.
+// pipeline and descriptor pool. The pipeline is built for a single color attachment of the given
+// format with no depth.
 class ImGuiLayer
 {
   public:
@@ -27,6 +28,7 @@ class ImGuiLayer
     void beginFrame() const;
     // Finalizes this frame's widgets into draw data. Call before recording.
     void endFrame() const;
-    // Records the draw data from endFrame(). Must be called inside vkCmdBeginRendering/vkCmdEndRendering.
-    void record(VkCommandBuffer cb) const;
+    // Records a pass that clears the swapchain image, draws the data from endFrame() into it,
+    // and leaves it ready to present.
+    void record(VkCommandBuffer cb, const Swapchain& swapchain, uint32_t imageIndex) const;
 };
