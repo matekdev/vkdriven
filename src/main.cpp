@@ -18,6 +18,7 @@
 #include "vk/check.h"
 #include "vk/device.h"
 #include "vk/handle.h"
+#include "vk/image.h"
 #include "vk/instance.h"
 #include "vk/surface.h"
 #include "vk/sync.h"
@@ -33,10 +34,6 @@
 VkSwapchainKHR swapchain{VK_NULL_HANDLE};
 std::vector<VkImage> swapchainImages;
 std::vector<VkImageView> swapchainImageViews;
-
-VkImage depthImage{VK_NULL_HANDLE};
-VmaAllocation depthImageAllocation{VK_NULL_HANDLE};
-VkImageView depthImageView{VK_NULL_HANDLE};
 
 struct ShaderData
 {
@@ -158,18 +155,7 @@ int main(int, char**)
         .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
-
-    VmaAllocationCreateInfo allocCI{.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-                                    .usage = VMA_MEMORY_USAGE_AUTO};
-    chk(vmaCreateImage(allocator.handle(), &depthImageCI, &allocCI, &depthImage, &depthImageAllocation, nullptr));
-
-    VkImageViewCreateInfo depthViewCI{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .image = depthImage,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = depthFormat,
-        .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .levelCount = 1, .layerCount = 1}};
-    chk(vkCreateImageView(device.handle(), &depthViewCI, nullptr, &depthImageView));
+    Image depthImage{allocator, depthImageCI, VK_IMAGE_ASPECT_DEPTH_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
 
     // Model loading.
     tinyobj::attrib_t attrib;
@@ -619,13 +605,10 @@ int main(int, char**)
                 renderCompleteSemaphores.push_back(createSemaphore(device.handle()));
             }
 
-            vkDestroyImageView(device.handle(), depthImageView, nullptr);
-            vmaDestroyImage(allocator.handle(), depthImage, depthImageAllocation);
+            depthImage.reset();
             depthImageCI.extent = {.width = swapchainExtent.width, .height = swapchainExtent.height, .depth = 1};
-            chk(vmaCreateImage(allocator.handle(), &depthImageCI, &allocCI, &depthImage, &depthImageAllocation,
-                               nullptr));
-            depthViewCI.image = depthImage;
-            chk(vkCreateImageView(device.handle(), &depthViewCI, nullptr, &depthImageView));
+            depthImage =
+                Image{allocator, depthImageCI, VK_IMAGE_ASPECT_DEPTH_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
         }
 
         // Wait on fence
@@ -684,7 +667,7 @@ int main(int, char**)
                  VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
              .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
              .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-             .image = depthImage,
+             .image = depthImage.handle(),
              .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
                                .levelCount = 1,
                                .layerCount = 1}},
@@ -701,7 +684,7 @@ int main(int, char**)
                                                       .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                                                       .clearValue{.color{0.0f, 0.0f, 0.0f, 1.0f}}};
         VkRenderingAttachmentInfo depthAttachmentInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                                                      .imageView = depthImageView,
+                                                      .imageView = depthImage.view(),
                                                       .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
                                                       .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                                                       .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -790,8 +773,6 @@ int main(int, char**)
 
     // Cleaning up
     device.waitIdle();
-    vkDestroyImageView(device.handle(), depthImageView, nullptr);
-    vmaDestroyImage(allocator.handle(), depthImage, depthImageAllocation);
     for (auto view : swapchainImageViews)
     {
         vkDestroyImageView(device.handle(), view, nullptr);
