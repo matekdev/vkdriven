@@ -1,6 +1,6 @@
 # AGENTS.md
 
-vkdriven is a GPU-driven Vulkan 1.3 renderer for very large scenes. The plan and current scope are in `docs/roadmap.md`.
+vkdriven is a Vulkan 1.3 renderer. The plan and current scope are in `docs/roadmap.md`.
 
 The Vulkan core follows [How to Vulkan](https://www.howtovulkan.com/) (source: https://github.com/SaschaWillems/HowToVulkan). When explaining or reviewing P1 work, point to the matching chapter and stay consistent with its approach, apart from the project's own choices (C++23, vcpkg, reverse-Z).
 
