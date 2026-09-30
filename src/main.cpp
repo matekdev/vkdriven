@@ -8,9 +8,9 @@
 #include <glm/gtc/quaternion.hpp>
 #include <slang-com-ptr.h>
 #include <slang.h>
-#include <tiny_obj_loader.h>
 
 #include "platform/window.h"
+#include "scene/mesh.h"
 #include "vk/allocator.h"
 #include "vk/buffer.h"
 #include "vk/check.h"
@@ -52,13 +52,6 @@ Slang::ComPtr<slang::IGlobalSession> slangGlobalSession;
 
 VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
 VkPipeline pipeline{VK_NULL_HANDLE};
-
-struct Vertex
-{
-    glm::vec3 pos;
-    glm::vec3 normal;
-    glm::vec2 uv;
-};
 
 int main(int, char**)
 {
@@ -107,37 +100,16 @@ int main(int, char**)
     Image depthImage{allocator, depthImageCI, VK_IMAGE_ASPECT_DEPTH_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
 
     // Model loading.
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    chk(tinyobj::LoadObj(&attrib, &shapes, &materials, nullptr, nullptr, "assets/suzanne.obj"));
-
-    const VkDeviceSize indexCount{shapes[0].mesh.indices.size()};
-    std::vector<Vertex> vertices{};
-    std::vector<uint16_t> indices{};
-    for (auto& index : shapes[0].mesh.indices)
+    const auto mesh = Mesh::loadObj(allocator, "assets/suzanne.obj");
+    if (!mesh)
     {
-        Vertex v{
-            .pos = {attrib.vertices[index.vertex_index * 3], -attrib.vertices[index.vertex_index * 3 + 1],
-                    attrib.vertices[index.vertex_index * 3 + 2]},
-            .normal = {attrib.normals[index.normal_index * 3], -attrib.normals[index.normal_index * 3 + 1],
-                       attrib.normals[index.normal_index * 3 + 2]},
-            .uv = {attrib.texcoords[index.texcoord_index * 2], 1.0f - attrib.texcoords[index.texcoord_index * 2 + 1]}};
-        vertices.push_back(v);
-        indices.push_back(static_cast<uint16_t>(indices.size()));
+        std::println(stderr, "{}", mesh.error());
+        return 1;
     }
 
-    // Create buffer data for gpu.
     constexpr VmaAllocationCreateFlags hostWritableFlags =
         VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
         VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-    const VkDeviceSize vBufSize{sizeof(Vertex) * vertices.size()};
-    const VkDeviceSize iBufSize{sizeof(uint16_t) * indices.size()};
-    Buffer meshBuffer{allocator, vBufSize + iBufSize,
-                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, hostWritableFlags};
-    meshBuffer.write(vertices);
-    meshBuffer.write(indices, vBufSize);
 
     // Shader data buffer setup.
     std::array<Buffer, maxFramesInFlight> shaderDataBuffers;
@@ -273,13 +245,8 @@ int main(int, char**)
          .pName = "main"},
     });
 
-    VkVertexInputBindingDescription vertexBinding{
-        .binding = 0, .stride = sizeof(Vertex), .inputRate = VK_VERTEX_INPUT_RATE_VERTEX};
-    const auto vertexAttributes = std::to_array<VkVertexInputAttributeDescription>({
-        {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, pos)},
-        {.location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, normal)},
-        {.location = 2, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(Vertex, uv)},
-    });
+    constexpr VkVertexInputBindingDescription vertexBinding = Vertex::bindingDescription();
+    constexpr auto vertexAttributes = Vertex::attributeDescriptions();
     VkPipelineVertexInputStateCreateInfo vertexInputState{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount = 1,
@@ -498,13 +465,13 @@ int main(int, char**)
         vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSetTex, 0,
                                 nullptr);
         VkDeviceSize vOffset{0};
-        const VkBuffer meshBufferHandle = meshBuffer.handle();
-        vkCmdBindVertexBuffers(cb, 0, 1, &meshBufferHandle, &vOffset);
-        vkCmdBindIndexBuffer(cb, meshBufferHandle, vBufSize, VK_INDEX_TYPE_UINT16);
+        const VkBuffer meshBuffer = mesh->buffer();
+        vkCmdBindVertexBuffers(cb, 0, 1, &meshBuffer, &vOffset);
+        vkCmdBindIndexBuffer(cb, meshBuffer, mesh->indexOffset(), Mesh::indexType);
         const VkDeviceAddress shaderDataAddress = shaderDataBuffers[frameIndex].deviceAddress();
         vkCmdPushConstants(cb, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VkDeviceAddress),
                            &shaderDataAddress);
-        vkCmdDrawIndexed(cb, static_cast<uint32_t>(indexCount), 3, 0, 0, 0);
+        vkCmdDrawIndexed(cb, mesh->indexCount(), 3, 0, 0, 0);
         vkCmdEndRendering(cb);
 
         VkImageMemoryBarrier2 barrierPresent{
