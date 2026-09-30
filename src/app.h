@@ -7,12 +7,13 @@
 #include "platform/file_watcher.h"
 #include "platform/window.h"
 #include "scene/scene.h"
+#include "ui/imgui_layer.h"
+#include "ui/viewport_target.h"
 #include "vk/allocator.h"
 #include "vk/command_pool.h"
 #include "vk/device.h"
 #include "vk/frame_resources.h"
 #include "vk/graphics_pipeline.h"
-#include "vk/image.h"
 #include "vk/instance.h"
 #include "vk/shader_compiler.h"
 #include "vk/surface.h"
@@ -58,9 +59,13 @@ class App
     [[nodiscard]] bool recreateSwapchain();
     [[nodiscard]] std::expected<GraphicsPipeline, std::string> buildPipeline() const;
     void reloadShaders();
+    void resizeViewport();
+    void drawUi();
     void drawFrame();
     void updateFrameData(Frame& frame) const;
     void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, const Frame& frame) const;
+    void recordScenePass(VkCommandBuffer cb, const Frame& frame) const;
+    void recordUiPass(VkCommandBuffer cb, uint32_t imageIndex) const;
 
     Window window_;
     Instance instance_;
@@ -69,7 +74,6 @@ class App
     Allocator allocator_;
     Swapchain swapchain_;
     VkFormat depthFormat_;
-    Image depthImage_;
     CommandPool commandPool_;
     FrameResources frames_;
     Scene scene_;
@@ -77,7 +81,10 @@ class App
     std::filesystem::path shaderDirectory_;
     GraphicsPipeline pipeline_;
     FileWatcher shaderWatcher_;
+    ImGuiLayer imgui_;
+    ViewportTarget viewport_;
 
+    VkExtent2D requestedViewportExtent_{};
     bool updateSwapchain_{false};
     bool reloadRequested_{false};
 };

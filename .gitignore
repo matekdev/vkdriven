@@ -16,3 +16,6 @@ vcpkg_installed/
 # Captures and profiles
 *.rdc
 *.tracy
+
+# ImGui window layout
+imgui.ini

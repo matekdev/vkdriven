@@ -80,7 +80,8 @@ class Swapchain
     const Window& window_;
 
     VkSwapchainKHR swapchain_{VK_NULL_HANDLE};
-    VkFormat format_{VK_FORMAT_B8G8R8A8_SRGB};
+    // UNORM because only ImGui draws to the swapchain, and its colors are already sRGB-encoded.
+    VkFormat format_{VK_FORMAT_B8G8R8A8_UNORM};
     VkExtent2D extent_{};
     std::vector<VkImage> images_;
     std::vector<DeviceHandle<VkImageView>> views_;

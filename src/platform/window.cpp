@@ -2,6 +2,7 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
+#include <imgui_impl_sdl3.h>
 
 #include "vk/check.h"
 
@@ -34,6 +35,7 @@ WindowEvents Window::pollEvents() const
     WindowEvents events;
     for (SDL_Event event; SDL_PollEvent(&event);)
     {
+        ImGui_ImplSDL3_ProcessEvent(&event);
         if (event.type == SDL_EVENT_QUIT)
             events.quitRequested = true;
         if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)

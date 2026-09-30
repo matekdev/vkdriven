@@ -20,6 +20,30 @@ find_package(Ktx CONFIG REQUIRED)
 find_package(slang CONFIG REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
 find_package(Stb REQUIRED)
+find_package(imgui CONFIG REQUIRED)
+
+# vcpkg's prebuilt ImGui Vulkan backend links the Vulkan loader, which clashes with volk. Build the backend from
+# the matching upstream release against volk instead. Keep the tag in sync with the imgui version (and docking feature) vcpkg installs.
+include(FetchContent)
+FetchContent_Declare(imgui_backends
+    URL https://github.com/ocornut/imgui/archive/v1.92.9b-docking.tar.gz
+    URL_HASH SHA512=7eddcdb475f1db1fc8242d918533b955c964d2267abe713bdf23f8e2444770946d3c79c7855e360bab6168e36231b95bd05a84106c08f876dcd53daac9caccac
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(imgui_backends)
+
+add_library(imgui_impl_vulkan STATIC "${imgui_backends_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp")
+target_include_directories(imgui_impl_vulkan PUBLIC "${imgui_backends_SOURCE_DIR}/backends")
+target_compile_definitions(imgui_impl_vulkan PUBLIC IMGUI_IMPL_VULKAN_USE_VOLK)
+target_link_libraries(imgui_impl_vulkan PUBLIC imgui::imgui Vulkan::Headers volk::volk)
+
+# Icon codepoint macros (ICON_FA_*) for assets/fonts/fa-solid-900.ttf. Not in vcpkg; header-only.
+FetchContent_Declare(icon_font_headers
+    URL https://github.com/juliettef/IconFontCppHeaders/archive/210b5a399a64270674560d633638952d1e8d804d.tar.gz
+    URL_HASH SHA256=aae5fd355521f62a0257064f40bab5676aee93c9fa9dd7fd53375d3594933b3f
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(icon_font_headers)
 
 add_executable(vkdriven
     src/app.cpp
@@ -34,6 +58,12 @@ add_executable(vkdriven
     src/scene/scene.cpp
     src/scene/scene.h
     src/scene/vertex.h
+    src/ui/imgui_layer.cpp
+    src/ui/imgui_layer.h
+    src/ui/imgui_style.cpp
+    src/ui/imgui_style.h
+    src/ui/viewport_target.cpp
+    src/ui/viewport_target.h
     src/vk/allocator.cpp
     src/vk/allocator.h
     src/vk/bindless_textures.cpp
@@ -79,9 +109,11 @@ target_link_libraries(vkdriven PRIVATE
     KTX::ktx
     slang::slang
     fastgltf::fastgltf
+    imgui::imgui
+    imgui_impl_vulkan
 )
 
-target_include_directories(vkdriven SYSTEM PRIVATE ${Stb_INCLUDE_DIR})
+target_include_directories(vkdriven SYSTEM PRIVATE ${Stb_INCLUDE_DIR} ${icon_font_headers_SOURCE_DIR})
 
 target_compile_definitions(vkdriven PRIVATE
     GLM_FORCE_DEPTH_ZERO_TO_ONE

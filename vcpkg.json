@@ -18,6 +18,10 @@
     },
     "shader-slang",
     "fastgltf",
-    "stb"
+    "stb",
+    {
+      "name": "imgui",
+      "features": [ "docking-experimental", "sdl3-binding" ]
+    }
   ]
 }
