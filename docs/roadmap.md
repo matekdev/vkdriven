@@ -53,8 +53,8 @@ Hour estimates assume ~5 hrs/week. P0 through P4 is about 155h, or roughly **8 m
 - [x] New repo. CMake presets + vcpkg manifest. C++23. Visual Studio 2026.
 - [x] Windowing with SDL3: a window that opens and runs an event loop
 - [x] Packages (the How to Vulkan set): volk, VMA, glm, SDL3, tinyobjloader, KTX-Software, Slang
-- [ ] Validation layers on in debug builds, plus a debug-utils messenger. Give every object a debug name.
-- [ ] RenderDoc capture works
+- [x] Validation layers on in debug builds, plus a debug-utils messenger
+- [x] RenderDoc capture works
 - [x] GitHub Actions: Windows build (Linux build optional)
 
 ### P1: Vulkan core, following How to Vulkan (~40h, 8 weeks). *Milestone: the tutorial's textured, lit mesh, then textured Sponza + fly camera*
