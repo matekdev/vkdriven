@@ -3,12 +3,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_vulkan.h>
-
-#pragma warning(push, 0)
-#define VMA_IMPLEMENTATION
-#include <vma/vk_mem_alloc.h>
-#pragma warning(pop)
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -19,6 +13,7 @@
 #include <tiny_obj_loader.h>
 
 #include "platform/window.h"
+#include "vk/allocator.h"
 #include "vk/check.h"
 #include "vk/device.h"
 #include "vk/handle.h"
@@ -34,7 +29,6 @@
 #include <string>
 #include <vector>
 
-VmaAllocator allocator{VK_NULL_HANDLE};
 VkSwapchainKHR swapchain{VK_NULL_HANDLE};
 std::vector<VkImage> swapchainImages;
 std::vector<VkImageView> swapchainImageViews;
@@ -101,16 +95,7 @@ int main(int, char**)
 
     const Device device{instance, surface};
 
-    // Setup VMA (Vulkan Memory Allocator).
-    VmaVulkanFunctions vkFunctions{.vkGetInstanceProcAddr = vkGetInstanceProcAddr,
-                                   .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
-                                   .vkCreateImage = vkCreateImage};
-    VmaAllocatorCreateInfo allocatorCI{.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-                                       .physicalDevice = device.physical(),
-                                       .device = device.handle(),
-                                       .pVulkanFunctions = &vkFunctions,
-                                       .instance = instance.handle()};
-    chk(vmaCreateAllocator(&allocatorCI, &allocator));
+    const Allocator allocator{instance, device};
 
     // Query surface capabilities.
     VkSurfaceCapabilitiesKHR surfaceCaps{};
@@ -187,7 +172,7 @@ int main(int, char**)
 
     VmaAllocationCreateInfo allocCI{.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
                                     .usage = VMA_MEMORY_USAGE_AUTO};
-    chk(vmaCreateImage(allocator, &depthImageCI, &allocCI, &depthImage, &depthImageAllocation, nullptr));
+    chk(vmaCreateImage(allocator.handle(), &depthImageCI, &allocCI, &depthImage, &depthImageAllocation, nullptr));
 
     VkImageViewCreateInfo depthViewCI{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -230,7 +215,8 @@ int main(int, char**)
                                                     VMA_ALLOCATION_CREATE_MAPPED_BIT,
                                            .usage = VMA_MEMORY_USAGE_AUTO};
     VmaAllocationInfo vBufferAllocInfo{};
-    chk(vmaCreateBuffer(allocator, &bufferCI, &vBufferAllocCI, &vBuffer, &vBufferAllocation, &vBufferAllocInfo));
+    chk(vmaCreateBuffer(allocator.handle(), &bufferCI, &vBufferAllocCI, &vBuffer, &vBufferAllocation,
+                        &vBufferAllocInfo));
 
     memcpy(vBufferAllocInfo.pMappedData, vertices.data(), vBufSize);
     memcpy(((char*)vBufferAllocInfo.pMappedData) + vBufSize, indices.data(), iBufSize);
@@ -245,7 +231,7 @@ int main(int, char**)
                                                         VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
                                                         VMA_ALLOCATION_CREATE_MAPPED_BIT,
                                                .usage = VMA_MEMORY_USAGE_AUTO};
-        chk(vmaCreateBuffer(allocator, &uBufferCI, &uBufferAllocCI, &shaderDataBuffers[i].buffer,
+        chk(vmaCreateBuffer(allocator.handle(), &uBufferCI, &uBufferAllocCI, &shaderDataBuffers[i].buffer,
                             &shaderDataBuffers[i].allocation, &shaderDataBuffers[i].allocationInfo));
         VkBufferDeviceAddressInfo uBufferBdaInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
                                                  .buffer = shaderDataBuffers[i].buffer};
@@ -302,7 +288,7 @@ int main(int, char**)
             .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
         VmaAllocationCreateInfo texImageAllocCI{.usage = VMA_MEMORY_USAGE_AUTO};
-        chk(vmaCreateImage(allocator, &texImgCI, &texImageAllocCI, &textures[i].image, &textures[i].allocation,
+        chk(vmaCreateImage(allocator.handle(), &texImgCI, &texImageAllocCI, &textures[i].image, &textures[i].allocation,
                            nullptr));
 
         VkImageViewCreateInfo texViewCI{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -324,7 +310,7 @@ int main(int, char**)
                                                        VMA_ALLOCATION_CREATE_MAPPED_BIT,
                                               .usage = VMA_MEMORY_USAGE_AUTO};
         VmaAllocationInfo imgSrcAllocInfo{};
-        chk(vmaCreateBuffer(allocator, &imgSrcBufferCI, &imgSrcAllocCI, &imgSrcBuffer, &imgSrcAllocation,
+        chk(vmaCreateBuffer(allocator.handle(), &imgSrcBufferCI, &imgSrcAllocCI, &imgSrcBuffer, &imgSrcAllocation,
                             &imgSrcAllocInfo));
         memcpy(imgSrcAllocInfo.pMappedData, ktxTexture->pData, ktxTexture->dataSize);
 
@@ -398,7 +384,7 @@ int main(int, char**)
         chk(vkQueueSubmit2(device.queue(), 1, &oneTimeSI, fenceOneTime.get()));
         chk(vkWaitForFences(device.handle(), 1, fenceOneTime.ptr(), VK_TRUE, UINT64_MAX));
         vkFreeCommandBuffers(device.handle(), commandPool, 1, &cbOneTime);
-        vmaDestroyBuffer(allocator, imgSrcBuffer, imgSrcAllocation);
+        vmaDestroyBuffer(allocator.handle(), imgSrcBuffer, imgSrcAllocation);
 
         VkSamplerCreateInfo samplerCI{.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
                                       .magFilter = VK_FILTER_LINEAR,
@@ -669,9 +655,10 @@ int main(int, char**)
             }
 
             vkDestroyImageView(device.handle(), depthImageView, nullptr);
-            vmaDestroyImage(allocator, depthImage, depthImageAllocation);
+            vmaDestroyImage(allocator.handle(), depthImage, depthImageAllocation);
             depthImageCI.extent = {.width = swapchainExtent.width, .height = swapchainExtent.height, .depth = 1};
-            chk(vmaCreateImage(allocator, &depthImageCI, &allocCI, &depthImage, &depthImageAllocation, nullptr));
+            chk(vmaCreateImage(allocator.handle(), &depthImageCI, &allocCI, &depthImage, &depthImageAllocation,
+                               nullptr));
             depthViewCI.image = depthImage;
             chk(vkCreateImageView(device.handle(), &depthViewCI, nullptr, &depthImageView));
         }
@@ -838,20 +825,20 @@ int main(int, char**)
     device.waitIdle();
     for (uint32_t i = 0; i < maxFramesInFlight; i++)
     {
-        vmaDestroyBuffer(allocator, shaderDataBuffers[i].buffer, shaderDataBuffers[i].allocation);
+        vmaDestroyBuffer(allocator.handle(), shaderDataBuffers[i].buffer, shaderDataBuffers[i].allocation);
     }
     vkDestroyImageView(device.handle(), depthImageView, nullptr);
-    vmaDestroyImage(allocator, depthImage, depthImageAllocation);
+    vmaDestroyImage(allocator.handle(), depthImage, depthImageAllocation);
     for (auto view : swapchainImageViews)
     {
         vkDestroyImageView(device.handle(), view, nullptr);
     }
-    vmaDestroyBuffer(allocator, vBuffer, vBufferAllocation);
+    vmaDestroyBuffer(allocator.handle(), vBuffer, vBufferAllocation);
     for (auto& texture : textures)
     {
         vkDestroyImageView(device.handle(), texture.view, nullptr);
         vkDestroySampler(device.handle(), texture.sampler, nullptr);
-        vmaDestroyImage(allocator, texture.image, texture.allocation);
+        vmaDestroyImage(allocator.handle(), texture.image, texture.allocation);
     }
     vkDestroyDescriptorSetLayout(device.handle(), descriptorSetLayoutTex, nullptr);
     vkDestroyDescriptorPool(device.handle(), descriptorPool, nullptr);
@@ -860,7 +847,6 @@ int main(int, char**)
     vkDestroyShaderModule(device.handle(), shaderModule, nullptr);
     vkDestroyCommandPool(device.handle(), commandPool, nullptr);
     vkDestroySwapchainKHR(device.handle(), swapchain, nullptr);
-    vmaDestroyAllocator(allocator);
 
     return 0;
 }
