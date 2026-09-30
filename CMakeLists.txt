@@ -23,6 +23,8 @@ find_package(slang CONFIG REQUIRED)
 add_executable(vkdriven
     src/main.cpp
     src/vk/check.h
+    src/vk/handle.h
+    src/vk/sync.h
 )
 
 target_include_directories(vkdriven PRIVATE src)
