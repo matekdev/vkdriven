@@ -29,6 +29,8 @@ add_executable(vkdriven
     src/vk/buffer.cpp
     src/vk/buffer.h
     src/vk/check.h
+    src/vk/command_pool.cpp
+    src/vk/command_pool.h
     src/vk/device.cpp
     src/vk/device.h
     src/vk/handle.h
