@@ -74,13 +74,11 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 - [x] Graphics pipeline with **dynamic rendering** (no VkRenderPass) (*Graphics pipeline*)
 - [x] Render loop with **synchronization2** barriers, and swapchain recreation on resize. Every barrier should have a reason you can state. (*Render loop*)
 - [x] Clean shutdown with zero validation errors (*Cleaning up*)
-- [ ] **Tutorial complete.** Tag it.
-- [ ] Beyond the tutorial: dedicated compute + transfer queues, staging uploads with queue-family ownership transfer
-- [ ] Beyond the tutorial: compute pipelines, and a `VkPipelineCache` saved to disk
+- [x] **Tutorial complete.** Tag it.
 - [x] Beyond the tutorial: shader hot-reload (watch the file, recompile with the Slang API, rebuild the pipeline). Runtime compilation makes this easy.
 - [x] Add ImGui (backend built against volk), with a stats panel
-- [ ] Fly camera
-- [ ] 📝 Blog: "Getting started with Vulkan 1.3: what's actually different"
+- [x] Fly camera
+- [x] 📝 Blog: "Getting started with Vulkan 1.3: what's actually different"
 
 ### P2: Assets & scene (~20h, 4 weeks)
 - [x] Add **fastgltf** and move from OBJ (tinyobjloader) to glTF 2.0 loading
@@ -91,6 +89,7 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 - [ ] Test scenes: Sponza, Intel Sponza, Amazon Lumberyard Bistro
 
 ### P3: Physically based lighting (~35h, 7 weeks). *Milestone: Bistro with PBR + cascaded shadows*
+- [ ] Compute pipelines (needed for the IBL precomputation below), and a `VkPipelineCache` saved to disk
 - [ ] HDR render target (`R16G16B16A16_SFLOAT`) and a separate tonemap pass (ACES or AgX), with exposure control
 - [ ] Correct color handling: sRGB textures vs. linear data textures, sRGB swapchain
 - [ ] Cook-Torrance BRDF: GGX NDF, Smith geometry term, Schlick Fresnel, metal/roughness workflow
@@ -138,6 +137,7 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 
 ### P7: Frame structure (~25h, 5 weeks)
 - [ ] Lightweight **render graph**: passes declare what they read and write, and barriers and transient resources are handled automatically
+- [ ] Dedicated compute + transfer queues, staging uploads with queue-family ownership transfer
 - [ ] **Async compute**: run culling or SSAO on the compute queue overlapped with graphics, with timeline semaphores. Measure the overlap.
 - [ ] **Clustered forward lighting**: compute light-cluster assignment, supporting 1000+ lights
 
