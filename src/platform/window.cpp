@@ -29,6 +29,26 @@ VkExtent2D Window::sizeInPixels() const
     return {.width = static_cast<uint32_t>(width), .height = static_cast<uint32_t>(height)};
 }
 
+WindowEvents Window::pollEvents() const
+{
+    WindowEvents events;
+    for (SDL_Event event; SDL_PollEvent(&event);)
+    {
+        if (event.type == SDL_EVENT_QUIT)
+            events.quitRequested = true;
+        if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
+            events.resized = true;
+        if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat)
+            events.keysPressed.push_back(event.key.key);
+    }
+    return events;
+}
+
+void Window::waitForEvent() const
+{
+    SDL_WaitEvent(nullptr);
+}
+
 std::span<const char* const> Window::requiredInstanceExtensions() const
 {
     uint32_t count = 0;

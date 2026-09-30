@@ -1,10 +1,10 @@
 #include "app.h"
 
-#include <SDL3/SDL.h>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "vk/check.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <format>
 #include <limits>
@@ -90,7 +90,7 @@ void App::run()
 
         if (updateSwapchain_ && !recreateSwapchain())
         {
-            SDL_WaitEvent(nullptr);
+            window_.waitForEvent();
             continue;
         }
 
@@ -100,20 +100,14 @@ void App::run()
 
 bool App::handleEvents()
 {
-    for (SDL_Event event; SDL_PollEvent(&event);)
-    {
-        if (event.type == SDL_EVENT_QUIT)
-            return false;
+    const WindowEvents events = window_.pollEvents();
+    if (events.quitRequested)
+        return false;
 
-        if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F5)
-        {
-            reloadRequested_ = true;
-        }
-        if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
-        {
-            updateSwapchain_ = true;
-        }
-    }
+    if (events.resized)
+        updateSwapchain_ = true;
+    if (std::ranges::contains(events.keysPressed, SDLK_F5))
+        reloadRequested_ = true;
     return true;
 }
 
