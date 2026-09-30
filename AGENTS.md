@@ -47,8 +47,13 @@ Presets: `debug` and `release` (RelWithDebInfo). vcpkg installs all dependencies
 
 ## Layout
 
-- `src/`: engine source. Currently a single `main.cpp` (SDL window + event loop), like How to Vulkan. New `.cpp` files must be added to `add_executable` in `CMakeLists.txt`.
-- `shaders/` (not created yet): Slang shaders, compiled to SPIR-V at runtime through the Slang API. There's no build-time shader step. When the first shader is added, CMake should copy `shaders/` next to the executable.
+- `src/main.cpp`: creates `App` and runs it. Load errors come out of `App`'s constructor as exceptions and are printed here.
+- `src/app.h/.cpp`: `App` owns the whole renderer and the frame loop. Its members are declared in dependency order, so destruction happens in the right order with no manual cleanup.
+- `src/vk/`: thin RAII wrappers over Vulkan objects (`Instance`, `Device`, `Swapchain`, `Buffer`, `Image`, `DeviceHandle<T>` for simple handles, etc.). They expose the raw handles; render code still calls `vkCmd*` directly.
+- `src/platform/`: SDL window and the file watcher used for shader hot-reload.
+- `src/scene/`: asset loading (`Mesh`, and `Vertex` with its vertex-input description).
+- New `.cpp`/`.h` files must be added to `add_executable` in `CMakeLists.txt`.
+- `shaders/`: Slang shaders, compiled to SPIR-V at runtime through the Slang API. There's no build-time shader step. CMake copies `shaders/` next to the executable. Debug builds read them from the source tree instead (`VKDRIVEN_SHADER_DIR`) and hot-reload on save or F5.
 - `docs/roadmap.md`: phased checklist. Check items off when they're done.
 
 ## Dependencies

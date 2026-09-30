@@ -78,7 +78,7 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 - [ ] **Tutorial complete.** Tag it.
 - [ ] Beyond the tutorial: dedicated compute + transfer queues, staging uploads with queue-family ownership transfer
 - [ ] Beyond the tutorial: compute pipelines, and a `VkPipelineCache` saved to disk
-- [ ] Beyond the tutorial: shader hot-reload (watch the file, recompile with the Slang API, rebuild the pipeline). Runtime compilation makes this easy.
+- [x] Beyond the tutorial: shader hot-reload (watch the file, recompile with the Slang API, rebuild the pipeline). Runtime compilation makes this easy.
 - [ ] Add ImGui (backend built against volk) and Tracy. Fly camera, ImGui stats (frame time, GPU time).
 - [ ] 📝 Blog: "Getting started with Vulkan 1.3: what's actually different"
 
