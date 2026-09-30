@@ -6,8 +6,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <slang-com-ptr.h>
-#include <slang.h>
 
 #include "platform/window.h"
 #include "scene/mesh.h"
@@ -20,6 +18,7 @@
 #include "vk/handle.h"
 #include "vk/image.h"
 #include "vk/instance.h"
+#include "vk/shader_compiler.h"
 #include "vk/surface.h"
 #include "vk/swapchain.h"
 #include "vk/sync.h"
@@ -44,8 +43,6 @@ struct ShaderData
 } shaderData{};
 
 constexpr uint32_t maxFramesInFlight = 2;
-
-Slang::ComPtr<slang::IGlobalSession> slangGlobalSession;
 
 VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
 VkPipeline pipeline{VK_NULL_HANDLE};
@@ -148,38 +145,14 @@ int main(int, char**)
     const BindlessTextures bindlessTextures{device, textureCount};
     bindlessTextures.write(textures);
 
-    // Slang compiler setup.
-    chk(slang::createGlobalSession(slangGlobalSession.writeRef()));
-    auto slangTargets{std::to_array<slang::TargetDesc>(
-        {{.format{SLANG_SPIRV}, .profile{slangGlobalSession->findProfile("spirv_1_4")}}})};
-    auto slangOptions{std::to_array<slang::CompilerOptionEntry>(
-        {{slang::CompilerOptionName::EmitSpirvDirectly, {slang::CompilerOptionValueKind::Int, 1}}})};
-    slang::SessionDesc slangSessionDesc{.targets{slangTargets.data()},
-                                        .targetCount{SlangInt(slangTargets.size())},
-                                        .defaultMatrixLayoutMode = SLANG_MATRIX_LAYOUT_COLUMN_MAJOR,
-                                        .compilerOptionEntries{slangOptions.data()},
-                                        .compilerOptionEntryCount{uint32_t(slangOptions.size())}};
-
     // Shader loading.
-    Slang::ComPtr<slang::ISession> slangSession;
-    chk(slangGlobalSession->createSession(slangSessionDesc, slangSession.writeRef()));
-    Slang::ComPtr<slang::IBlob> slangDiagnostics;
-    Slang::ComPtr<slang::IModule> slangModule{
-        slangSession->loadModuleFromSource("shader", "shaders/shader.slang", nullptr, slangDiagnostics.writeRef())};
-    if (!slangModule)
+    const ShaderCompiler shaderCompiler;
+    const auto shaderModule = shaderCompiler.compile(device, "shaders/shader.slang");
+    if (!shaderModule)
     {
-        std::println(stderr, "Failed to compile shaders/shader.slang:\n{}",
-                     slangDiagnostics ? static_cast<const char*>(slangDiagnostics->getBufferPointer()) : "");
+        std::println(stderr, "{}", shaderModule.error());
         return 1;
     }
-    Slang::ComPtr<ISlangBlob> spirv;
-    chk(slangModule->getTargetCode(0, spirv.writeRef()));
-
-    VkShaderModuleCreateInfo shaderModuleCI{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-                                            .codeSize = spirv->getBufferSize(),
-                                            .pCode = static_cast<const uint32_t*>(spirv->getBufferPointer())};
-    VkShaderModule shaderModule{VK_NULL_HANDLE};
-    chk(vkCreateShaderModule(device.handle(), &shaderModuleCI, nullptr, &shaderModule));
 
     // Graphics pipeline.
     const VkDescriptorSetLayout textureSetLayout = bindlessTextures.layout();
@@ -194,11 +167,11 @@ int main(int, char**)
     const auto shaderStages = std::to_array<VkPipelineShaderStageCreateInfo>({
         {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
          .stage = VK_SHADER_STAGE_VERTEX_BIT,
-         .module = shaderModule,
+         .module = shaderModule->get(),
          .pName = "main"},
         {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
          .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-         .module = shaderModule,
+         .module = shaderModule->get(),
          .pName = "main"},
     });
 
@@ -477,7 +450,6 @@ int main(int, char**)
     device.waitIdle();
     vkDestroyPipeline(device.handle(), pipeline, nullptr);
     vkDestroyPipelineLayout(device.handle(), pipelineLayout, nullptr);
-    vkDestroyShaderModule(device.handle(), shaderModule, nullptr);
 
     return 0;
 }

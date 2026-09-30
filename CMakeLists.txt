@@ -42,6 +42,8 @@ add_executable(vkdriven
     src/vk/image.h
     src/vk/instance.cpp
     src/vk/instance.h
+    src/vk/shader_compiler.cpp
+    src/vk/shader_compiler.h
     src/vk/surface.cpp
     src/vk/surface.h
     src/vk/swapchain.cpp
