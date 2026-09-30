@@ -7,6 +7,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include "platform/file_watcher.h"
 #include "platform/window.h"
 #include "scene/mesh.h"
 #include "vk/allocator.h"
@@ -144,8 +145,10 @@ int main(int, char**)
     bindlessTextures.write(textures);
 
     // Shader loading.
+    const std::filesystem::path shaderDirectory{VKDRIVEN_SHADER_DIR};
+    const std::filesystem::path shaderPath = shaderDirectory / "shader.slang";
     const ShaderCompiler shaderCompiler;
-    const auto shaderModule = shaderCompiler.compile(device, "shaders/shader.slang");
+    const auto shaderModule = shaderCompiler.compile(device, shaderPath);
     if (!shaderModule)
     {
         std::println(stderr, "{}", shaderModule.error());
@@ -154,8 +157,26 @@ int main(int, char**)
 
     // Graphics pipeline.
     const VkDescriptorSetLayout textureSetLayout = bindlessTextures.layout();
-    const GraphicsPipeline pipeline{device, shaderModule->get(), std::span{&textureSetLayout, 1}, swapchain.format(),
-                                    depthFormat};
+    GraphicsPipeline pipeline{device, shaderModule->get(), std::span{&textureSetLayout, 1}, swapchain.format(),
+                              depthFormat};
+
+    // Shader hot-reload. A failed compile keeps the current pipeline running.
+    FileWatcher shaderWatcher{shaderDirectory};
+    const auto reloadShaders = [&]
+    {
+        const auto reloadedModule = shaderCompiler.compile(device, shaderPath);
+        if (!reloadedModule)
+        {
+            std::println(stderr, "{}", reloadedModule.error());
+            return;
+        }
+        GraphicsPipeline reloadedPipeline{device, reloadedModule->get(), std::span{&textureSetLayout, 1},
+                                          swapchain.format(), depthFormat};
+        device.waitIdle();
+        pipeline = std::move(reloadedPipeline);
+        std::println("Reloaded {}", shaderPath.string());
+    };
+    bool reloadRequested{false};
 
     uint32_t frameIndex{0};
     uint32_t imageIndex{0};
@@ -195,6 +216,10 @@ int main(int, char**)
                 {
                     shaderData.selected = (shaderData.selected + 2) % 3;
                 }
+                if (event.key.key == SDLK_F5)
+                {
+                    reloadRequested = true;
+                }
             }
             if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
             {
@@ -204,6 +229,12 @@ int main(int, char**)
         if (quit)
         {
             break;
+        }
+
+        if (shaderWatcher.poll() || reloadRequested)
+        {
+            reloadRequested = false;
+            reloadShaders();
         }
 
         // Recreate swapchain

@@ -22,6 +22,8 @@ find_package(slang CONFIG REQUIRED)
 
 add_executable(vkdriven
     src/main.cpp
+    src/platform/file_watcher.cpp
+    src/platform/file_watcher.h
     src/platform/window.cpp
     src/platform/window.h
     src/scene/mesh.cpp
@@ -97,6 +99,13 @@ add_custom_command(TARGET vkdriven POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:vkdriven>/assets"
     VERBATIM
 )
+
+# Debug builds read shaders straight from the source tree so edits hot-reload without a rebuild.
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(vkdriven PRIVATE VKDRIVEN_SHADER_DIR="${CMAKE_SOURCE_DIR}/shaders")
+else()
+    target_compile_definitions(vkdriven PRIVATE VKDRIVEN_SHADER_DIR="shaders")
+endif()
 
 # Shaders are compiled at runtime, so copy them on every build even when the executable doesn't relink.
 add_custom_target(vkdriven_shaders ALL
