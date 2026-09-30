@@ -21,6 +21,7 @@
 #include "vk/image.h"
 #include "vk/instance.h"
 #include "vk/surface.h"
+#include "vk/swapchain.h"
 #include "vk/sync.h"
 
 #include <array>
@@ -30,10 +31,6 @@
 #include <print>
 #include <string>
 #include <vector>
-
-VkSwapchainKHR swapchain{VK_NULL_HANDLE};
-std::vector<VkImage> swapchainImages;
-std::vector<VkImageView> swapchainImageViews;
 
 struct ShaderData
 {
@@ -83,46 +80,7 @@ int main(int, char**)
 
     const Allocator allocator{instance, device};
 
-    // Query surface capabilities.
-    VkSurfaceCapabilitiesKHR surfaceCaps{};
-    chk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical(), surface.handle(), &surfaceCaps));
-
-    // Swapchain setup.
-    VkExtent2D swapchainExtent{surfaceCaps.currentExtent};
-    if (surfaceCaps.currentExtent.width == 0xFFFFFFFF)
-    {
-        swapchainExtent = window.sizeInPixels();
-    }
-
-    const VkFormat imageFormat{VK_FORMAT_B8G8R8A8_SRGB};
-    VkSwapchainCreateInfoKHR swapchainCI{.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-                                         .surface = surface.handle(),
-                                         .minImageCount = surfaceCaps.minImageCount,
-                                         .imageFormat = imageFormat,
-                                         .imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR,
-                                         .imageExtent{.width = swapchainExtent.width, .height = swapchainExtent.height},
-                                         .imageArrayLayers = 1,
-                                         .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                         .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
-                                         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-                                         .presentMode = VK_PRESENT_MODE_FIFO_KHR};
-    chk(vkCreateSwapchainKHR(device.handle(), &swapchainCI, nullptr, &swapchain));
-
-    uint32_t imageCount{0};
-    chk(vkGetSwapchainImagesKHR(device.handle(), swapchain, &imageCount, nullptr));
-    swapchainImages.resize(imageCount);
-    chk(vkGetSwapchainImagesKHR(device.handle(), swapchain, &imageCount, swapchainImages.data()));
-    swapchainImageViews.resize(imageCount);
-    for (uint32_t i = 0; i < imageCount; ++i)
-    {
-        VkImageViewCreateInfo viewCI{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = swapchainImages[i],
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = imageFormat,
-            .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1}};
-        chk(vkCreateImageView(device.handle(), &viewCI, nullptr, &swapchainImageViews[i]));
-    }
+    Swapchain swapchain{device, surface, window};
 
     // Depth attachment setup.
     std::vector<VkFormat> depthFormatList{VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
@@ -147,7 +105,7 @@ int main(int, char**)
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = depthFormat,
-        .extent{.width = swapchainExtent.width, .height = swapchainExtent.height, .depth = 1},
+        .extent{.width = swapchain.extent().width, .height = swapchain.extent().height, .depth = 1},
         .mipLevels = 1,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -205,11 +163,6 @@ int main(int, char**)
     {
         fences[i] = createFence(device.handle(), VK_FENCE_CREATE_SIGNALED_BIT);
         imageAcquiredSemaphores[i] = createSemaphore(device.handle());
-    }
-    std::vector<DeviceHandle<VkSemaphore>> renderCompleteSemaphores;
-    for (size_t i = 0; i < swapchainImages.size(); i++)
-    {
-        renderCompleteSemaphores.push_back(createSemaphore(device.handle()));
     }
 
     // Command buffers
@@ -490,9 +443,10 @@ int main(int, char**)
                                                         .attachmentCount = 1,
                                                         .pAttachments = &blendAttachment};
 
+    const VkFormat colorFormat = swapchain.format();
     VkPipelineRenderingCreateInfo renderingCI{.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                                               .colorAttachmentCount = 1,
-                                              .pColorAttachmentFormats = &imageFormat,
+                                              .pColorAttachmentFormats = &colorFormat,
                                               .depthAttachmentFormat = depthFormat};
     VkGraphicsPipelineCreateInfo pipelineCI{.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                                             .pNext = &renderingCI,
@@ -561,52 +515,15 @@ int main(int, char**)
         // Recreate swapchain
         if (updateSwapchain)
         {
-            chk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical(), surface.handle(), &surfaceCaps));
-            swapchainExtent = surfaceCaps.currentExtent;
-            if (surfaceCaps.currentExtent.width == 0xFFFFFFFF)
-            {
-                swapchainExtent = window.sizeInPixels();
-            }
-            if (swapchainExtent.width == 0 || swapchainExtent.height == 0)
+            if (!swapchain.recreate())
             {
                 SDL_WaitEvent(nullptr);
                 continue;
             }
             updateSwapchain = false;
-            device.waitIdle();
-
-            swapchainCI.oldSwapchain = swapchain;
-            swapchainCI.imageExtent = swapchainExtent;
-            chk(vkCreateSwapchainKHR(device.handle(), &swapchainCI, nullptr, &swapchain));
-            vkDestroySwapchainKHR(device.handle(), swapchainCI.oldSwapchain, nullptr);
-
-            for (auto view : swapchainImageViews)
-            {
-                vkDestroyImageView(device.handle(), view, nullptr);
-            }
-            chk(vkGetSwapchainImagesKHR(device.handle(), swapchain, &imageCount, nullptr));
-            swapchainImages.resize(imageCount);
-            chk(vkGetSwapchainImagesKHR(device.handle(), swapchain, &imageCount, swapchainImages.data()));
-            swapchainImageViews.resize(imageCount);
-            for (uint32_t i = 0; i < imageCount; ++i)
-            {
-                VkImageViewCreateInfo viewCI{
-                    .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                    .image = swapchainImages[i],
-                    .viewType = VK_IMAGE_VIEW_TYPE_2D,
-                    .format = imageFormat,
-                    .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1}};
-                chk(vkCreateImageView(device.handle(), &viewCI, nullptr, &swapchainImageViews[i]));
-            }
-
-            renderCompleteSemaphores.clear();
-            for (uint32_t i = 0; i < imageCount; i++)
-            {
-                renderCompleteSemaphores.push_back(createSemaphore(device.handle()));
-            }
 
             depthImage.reset();
-            depthImageCI.extent = {.width = swapchainExtent.width, .height = swapchainExtent.height, .depth = 1};
+            depthImageCI.extent = {.width = swapchain.extent().width, .height = swapchain.extent().height, .depth = 1};
             depthImage =
                 Image{allocator, depthImageCI, VK_IMAGE_ASPECT_DEPTH_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
         }
@@ -615,22 +532,22 @@ int main(int, char**)
         chk(vkWaitForFences(device.handle(), 1, fences[frameIndex].ptr(), VK_TRUE, UINT64_MAX));
 
         // Acquire next image
-        const VkResult acquireResult =
-            vkAcquireNextImageKHR(device.handle(), swapchain, UINT64_MAX, imageAcquiredSemaphores[frameIndex].get(),
-                                  VK_NULL_HANDLE, &imageIndex);
-        if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR)
+        const auto [acquireStatus, acquiredIndex] =
+            swapchain.acquireNextImage(imageAcquiredSemaphores[frameIndex].get());
+        if (acquireStatus == SwapchainStatus::OutOfDate)
         {
             updateSwapchain = true;
             continue;
         }
-        chk(acquireResult);
-        if (acquireResult == VK_SUBOPTIMAL_KHR)
+        if (acquireStatus == SwapchainStatus::Suboptimal)
         {
             updateSwapchain = true;
         }
+        imageIndex = acquiredIndex;
         chk(vkResetFences(device.handle(), 1, fences[frameIndex].ptr()));
 
         // Update shader data
+        const VkExtent2D swapchainExtent = swapchain.extent();
         const float aspect{static_cast<float>(swapchainExtent.width) / static_cast<float>(swapchainExtent.height)};
         shaderData.projection = glm::perspective(glm::radians(45.0f), aspect, 32.0f, 0.1f);
         shaderData.view = glm::translate(glm::mat4(1.0f), camPos);
@@ -657,7 +574,7 @@ int main(int, char**)
              .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
              .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
              .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-             .image = swapchainImages[imageIndex],
+             .image = swapchain.image(imageIndex),
              .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1}},
             {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
              .srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
@@ -678,7 +595,7 @@ int main(int, char**)
         vkCmdPipelineBarrier2(cb, &outputDependencyInfo);
 
         VkRenderingAttachmentInfo colorAttachmentInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                                                      .imageView = swapchainImageViews[imageIndex],
+                                                      .imageView = swapchain.view(imageIndex),
                                                       .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
                                                       .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                                                       .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -726,7 +643,7 @@ int main(int, char**)
             .dstAccessMask = VK_ACCESS_2_NONE,
             .oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
             .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            .image = swapchainImages[imageIndex],
+            .image = swapchain.image(imageIndex),
             .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1}};
         VkDependencyInfo presentDependencyInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                                                .imageMemoryBarrierCount = 1,
@@ -741,7 +658,7 @@ int main(int, char**)
         VkCommandBufferSubmitInfo commandBufferSubmitInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
                                                           .commandBuffer = cb};
         VkSemaphoreSubmitInfo signalSemaphoreInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                                                  .semaphore = renderCompleteSemaphores[imageIndex].get(),
+                                                  .semaphore = swapchain.renderComplete(imageIndex),
                                                   .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT};
         VkSubmitInfo2 submitInfo{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                                  .waitSemaphoreInfoCount = 1,
@@ -754,29 +671,14 @@ int main(int, char**)
         frameIndex = (frameIndex + 1) % maxFramesInFlight;
 
         // Present image
-        VkPresentInfoKHR presentInfo{.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-                                     .waitSemaphoreCount = 1,
-                                     .pWaitSemaphores = renderCompleteSemaphores[imageIndex].ptr(),
-                                     .swapchainCount = 1,
-                                     .pSwapchains = &swapchain,
-                                     .pImageIndices = &imageIndex};
-        const VkResult presentResult = vkQueuePresentKHR(device.queue(), &presentInfo);
-        if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR)
+        if (swapchain.present(device.queue(), imageIndex) != SwapchainStatus::Optimal)
         {
             updateSwapchain = true;
-        }
-        else
-        {
-            chk(presentResult);
         }
     }
 
     // Cleaning up
     device.waitIdle();
-    for (auto view : swapchainImageViews)
-    {
-        vkDestroyImageView(device.handle(), view, nullptr);
-    }
     for (auto& texture : textures)
     {
         vkDestroyImageView(device.handle(), texture.view, nullptr);
@@ -789,7 +691,6 @@ int main(int, char**)
     vkDestroyPipelineLayout(device.handle(), pipelineLayout, nullptr);
     vkDestroyShaderModule(device.handle(), shaderModule, nullptr);
     vkDestroyCommandPool(device.handle(), commandPool, nullptr);
-    vkDestroySwapchainKHR(device.handle(), swapchain, nullptr);
 
     return 0;
 }

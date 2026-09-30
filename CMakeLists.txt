@@ -38,6 +38,8 @@ add_executable(vkdriven
     src/vk/instance.h
     src/vk/surface.cpp
     src/vk/surface.h
+    src/vk/swapchain.cpp
+    src/vk/swapchain.h
     src/vk/sync.h
 )
 
