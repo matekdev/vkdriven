@@ -16,6 +16,7 @@
 #include "vk/allocator.h"
 #include "vk/buffer.h"
 #include "vk/check.h"
+#include "vk/command_pool.h"
 #include "vk/device.h"
 #include "vk/handle.h"
 #include "vk/image.h"
@@ -42,8 +43,6 @@ struct ShaderData
 } shaderData{};
 
 constexpr uint32_t maxFramesInFlight = 2;
-VkCommandPool commandPool{VK_NULL_HANDLE};
-std::array<VkCommandBuffer, maxFramesInFlight> commandBuffers;
 
 struct Texture
 {
@@ -166,15 +165,9 @@ int main(int, char**)
     }
 
     // Command buffers
-    VkCommandPoolCreateInfo commandPoolCI{.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-                                          .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-                                          .queueFamilyIndex = device.queueFamily()};
-    chk(vkCreateCommandPool(device.handle(), &commandPoolCI, nullptr, &commandPool));
-
-    VkCommandBufferAllocateInfo cbAllocCI{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                                          .commandPool = commandPool,
-                                          .commandBufferCount = maxFramesInFlight};
-    chk(vkAllocateCommandBuffers(device.handle(), &cbAllocCI, commandBuffers.data()));
+    const CommandPool commandPool{device};
+    std::array<VkCommandBuffer, maxFramesInFlight> commandBuffers{};
+    commandPool.allocate(commandBuffers);
 
     // Texture loading.
     std::vector<VkDescriptorImageInfo> textureDescriptors{};
@@ -218,34 +211,6 @@ int main(int, char**)
                              VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT};
         stagingBuffer.write(std::span{ktxTexture->pData, ktxTexture->dataSize});
 
-        const auto fenceOneTime = createFence(device.handle());
-
-        VkCommandBuffer cbOneTime{VK_NULL_HANDLE};
-        VkCommandBufferAllocateInfo cbOneTimeAI{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                                                .commandPool = commandPool,
-                                                .commandBufferCount = 1};
-        chk(vkAllocateCommandBuffers(device.handle(), &cbOneTimeAI, &cbOneTime));
-
-        VkCommandBufferBeginInfo cbOneTimeBI{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-                                             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
-        chk(vkBeginCommandBuffer(cbOneTime, &cbOneTimeBI));
-
-        VkImageMemoryBarrier2 barrierTexImage{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-                                              .srcStageMask = VK_PIPELINE_STAGE_2_NONE,
-                                              .srcAccessMask = VK_ACCESS_2_NONE,
-                                              .dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                              .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                                              .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                                              .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                              .image = textures[i].image,
-                                              .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                .levelCount = ktxTexture->numLevels,
-                                                                .layerCount = 1}};
-        VkDependencyInfo barrierTexInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-                                        .imageMemoryBarrierCount = 1,
-                                        .pImageMemoryBarriers = &barrierTexImage};
-        vkCmdPipelineBarrier2(cbOneTime, &barrierTexInfo);
-
         std::vector<VkBufferImageCopy> copyRegions{};
         for (uint32_t mip = 0; mip < ktxTexture->numLevels; mip++)
         {
@@ -262,33 +227,43 @@ int main(int, char**)
                     .width = ktxTexture->baseWidth >> mip, .height = ktxTexture->baseHeight >> mip, .depth = 1},
             });
         }
-        vkCmdCopyBufferToImage(cbOneTime, stagingBuffer.handle(), textures[i].image,
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(copyRegions.size()),
-                               copyRegions.data());
+        commandPool.submitImmediate(
+            [&](VkCommandBuffer cb)
+            {
+                VkImageMemoryBarrier2 barrierTexImage{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                                                      .srcStageMask = VK_PIPELINE_STAGE_2_NONE,
+                                                      .srcAccessMask = VK_ACCESS_2_NONE,
+                                                      .dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                                      .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                                      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                                                      .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                      .image = textures[i].image,
+                                                      .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                        .levelCount = ktxTexture->numLevels,
+                                                                        .layerCount = 1}};
+                VkDependencyInfo barrierTexInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+                                                .imageMemoryBarrierCount = 1,
+                                                .pImageMemoryBarriers = &barrierTexImage};
+                vkCmdPipelineBarrier2(cb, &barrierTexInfo);
 
-        VkImageMemoryBarrier2 barrierTexRead{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-                                             .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                             .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                                             .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-                                             .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
-                                             .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                             .newLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
-                                             .image = textures[i].image,
-                                             .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                                               .levelCount = ktxTexture->numLevels,
-                                                               .layerCount = 1}};
-        barrierTexInfo.pImageMemoryBarriers = &barrierTexRead;
-        vkCmdPipelineBarrier2(cbOneTime, &barrierTexInfo);
-        chk(vkEndCommandBuffer(cbOneTime));
+                vkCmdCopyBufferToImage(cb, stagingBuffer.handle(), textures[i].image,
+                                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(copyRegions.size()),
+                                       copyRegions.data());
 
-        VkCommandBufferSubmitInfo cbOneTimeSubmitInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-                                                      .commandBuffer = cbOneTime};
-        VkSubmitInfo2 oneTimeSI{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-                                .commandBufferInfoCount = 1,
-                                .pCommandBufferInfos = &cbOneTimeSubmitInfo};
-        chk(vkQueueSubmit2(device.queue(), 1, &oneTimeSI, fenceOneTime.get()));
-        chk(vkWaitForFences(device.handle(), 1, fenceOneTime.ptr(), VK_TRUE, UINT64_MAX));
-        vkFreeCommandBuffers(device.handle(), commandPool, 1, &cbOneTime);
+                VkImageMemoryBarrier2 barrierTexRead{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                                                     .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                                     .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                                     .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                                                     .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+                                                     .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                     .newLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+                                                     .image = textures[i].image,
+                                                     .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                       .levelCount = ktxTexture->numLevels,
+                                                                       .layerCount = 1}};
+                barrierTexInfo.pImageMemoryBarriers = &barrierTexRead;
+                vkCmdPipelineBarrier2(cb, &barrierTexInfo);
+            });
 
         VkSamplerCreateInfo samplerCI{.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
                                       .magFilter = VK_FILTER_LINEAR,
@@ -690,7 +665,6 @@ int main(int, char**)
     vkDestroyPipeline(device.handle(), pipeline, nullptr);
     vkDestroyPipelineLayout(device.handle(), pipelineLayout, nullptr);
     vkDestroyShaderModule(device.handle(), shaderModule, nullptr);
-    vkDestroyCommandPool(device.handle(), commandPool, nullptr);
 
     return 0;
 }
