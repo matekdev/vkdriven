@@ -43,6 +43,8 @@ add_executable(vkdriven
     src/vk/swapchain.cpp
     src/vk/swapchain.h
     src/vk/sync.h
+    src/vk/texture.cpp
+    src/vk/texture.h
 )
 
 target_include_directories(vkdriven PRIVATE src)
