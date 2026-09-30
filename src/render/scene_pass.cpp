@@ -53,7 +53,7 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
 
     // The previous frame's UI pass may still be sampling the viewport image, so wait for its fragment
     // shaders before overwriting it. The image is cleared anyway, so the old contents are discarded.
-    imageBarriers(
+    pipelineBarrier(
         cb,
         std::to_array<VkImageMemoryBarrier2>({
             {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
@@ -121,13 +121,13 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
     }
     vkCmdEndRendering(cb);
 
-    imageBarrier(cb, {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-                      .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                      .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                      .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-                      .dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-                      .oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-                      .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                      .image = target.color().handle(),
-                      .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)});
+    pipelineBarrier(cb, {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                         .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                         .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                         .dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+                         .oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                         .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                         .image = target.color().handle(),
+                         .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)});
 }
