@@ -39,6 +39,8 @@ add_executable(vkdriven
     src/vk/command_pool.h
     src/vk/device.cpp
     src/vk/device.h
+    src/vk/frame_resources.cpp
+    src/vk/frame_resources.h
     src/vk/graphics_pipeline.cpp
     src/vk/graphics_pipeline.h
     src/vk/handle.h

@@ -16,14 +16,13 @@
 #include "vk/check.h"
 #include "vk/command_pool.h"
 #include "vk/device.h"
+#include "vk/frame_resources.h"
 #include "vk/graphics_pipeline.h"
-#include "vk/handle.h"
 #include "vk/image.h"
 #include "vk/instance.h"
 #include "vk/shader_compiler.h"
 #include "vk/surface.h"
 #include "vk/swapchain.h"
-#include "vk/sync.h"
 #include "vk/texture.h"
 
 #include <array>
@@ -43,8 +42,6 @@ struct ShaderData
     glm::vec4 lightPos{0.0f, -10.0f, 10.0f, 0.0f};
     uint32_t selected{1};
 } shaderData{};
-
-constexpr uint32_t maxFramesInFlight = 2;
 
 int main(int, char**)
 {
@@ -100,31 +97,9 @@ int main(int, char**)
         return 1;
     }
 
-    constexpr VmaAllocationCreateFlags hostWritableFlags =
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-    // Shader data buffer setup.
-    std::array<Buffer, maxFramesInFlight> shaderDataBuffers;
-    for (auto& shaderDataBuffer : shaderDataBuffers)
-    {
-        shaderDataBuffer =
-            Buffer{allocator, sizeof(ShaderData), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, hostWritableFlags};
-    }
-
-    // Synchronization setup.
-    std::array<DeviceHandle<VkFence>, maxFramesInFlight> fences;
-    std::array<DeviceHandle<VkSemaphore>, maxFramesInFlight> imageAcquiredSemaphores;
-    for (uint32_t i = 0; i < maxFramesInFlight; i++)
-    {
-        fences[i] = createFence(device.handle(), VK_FENCE_CREATE_SIGNALED_BIT);
-        imageAcquiredSemaphores[i] = createSemaphore(device.handle());
-    }
-
-    // Command buffers
+    // Command buffers and per-frame resources.
     const CommandPool commandPool{device};
-    std::array<VkCommandBuffer, maxFramesInFlight> commandBuffers{};
-    commandPool.allocate(commandBuffers);
+    FrameResources frames{device, allocator, commandPool, sizeof(ShaderData)};
 
     // Texture loading.
     constexpr uint32_t textureCount = 3;
@@ -178,7 +153,6 @@ int main(int, char**)
     };
     bool reloadRequested{false};
 
-    uint32_t frameIndex{0};
     uint32_t imageIndex{0};
     bool updateSwapchain{false};
     glm::vec3 camPos{0.0f, 0.0f, -6.0f};
@@ -253,12 +227,13 @@ int main(int, char**)
                 Image{allocator, depthImageCI, VK_IMAGE_ASPECT_DEPTH_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
         }
 
+        Frame& frame = frames.current();
+
         // Wait on fence
-        chk(vkWaitForFences(device.handle(), 1, fences[frameIndex].ptr(), VK_TRUE, UINT64_MAX));
+        chk(vkWaitForFences(device.handle(), 1, frame.inFlight.ptr(), VK_TRUE, UINT64_MAX));
 
         // Acquire next image
-        const auto [acquireStatus, acquiredIndex] =
-            swapchain.acquireNextImage(imageAcquiredSemaphores[frameIndex].get());
+        const auto [acquireStatus, acquiredIndex] = swapchain.acquireNextImage(frame.imageAcquired.get());
         if (acquireStatus == SwapchainStatus::OutOfDate)
         {
             updateSwapchain = true;
@@ -269,7 +244,7 @@ int main(int, char**)
             updateSwapchain = true;
         }
         imageIndex = acquiredIndex;
-        chk(vkResetFences(device.handle(), 1, fences[frameIndex].ptr()));
+        chk(vkResetFences(device.handle(), 1, frame.inFlight.ptr()));
 
         // Update shader data
         const VkExtent2D swapchainExtent = swapchain.extent();
@@ -282,10 +257,10 @@ int main(int, char**)
             shaderData.model[i] =
                 glm::translate(glm::mat4(1.0f), instancePos) * glm::mat4_cast(glm::quat(objectRotations[i]));
         }
-        shaderDataBuffers[frameIndex].write(std::span{&shaderData, 1});
+        frame.shaderData.write(std::span{&shaderData, 1});
 
         // Record command buffer
-        VkCommandBuffer cb = commandBuffers[frameIndex];
+        VkCommandBuffer cb = frame.commandBuffer;
         chk(vkResetCommandBuffer(cb, 0));
         VkCommandBufferBeginInfo cbBI{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
                                       .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
@@ -354,7 +329,7 @@ int main(int, char**)
         const VkBuffer meshBuffer = mesh->buffer();
         vkCmdBindVertexBuffers(cb, 0, 1, &meshBuffer, &vOffset);
         vkCmdBindIndexBuffer(cb, meshBuffer, mesh->indexOffset(), Mesh::indexType);
-        const VkDeviceAddress shaderDataAddress = shaderDataBuffers[frameIndex].deviceAddress();
+        const VkDeviceAddress shaderDataAddress = frame.shaderData.deviceAddress();
         vkCmdPushConstants(cb, pipeline.layout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VkDeviceAddress),
                            &shaderDataAddress);
         vkCmdDrawIndexed(cb, mesh->indexCount(), 3, 0, 0, 0);
@@ -378,7 +353,7 @@ int main(int, char**)
 
         // Submit command buffer
         VkSemaphoreSubmitInfo waitSemaphoreInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                                                .semaphore = imageAcquiredSemaphores[frameIndex].get(),
+                                                .semaphore = frame.imageAcquired.get(),
                                                 .stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT};
         VkCommandBufferSubmitInfo commandBufferSubmitInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
                                                           .commandBuffer = cb};
@@ -392,8 +367,8 @@ int main(int, char**)
                                  .pCommandBufferInfos = &commandBufferSubmitInfo,
                                  .signalSemaphoreInfoCount = 1,
                                  .pSignalSemaphoreInfos = &signalSemaphoreInfo};
-        chk(vkQueueSubmit2(device.queue(), 1, &submitInfo, fences[frameIndex].get()));
-        frameIndex = (frameIndex + 1) % maxFramesInFlight;
+        chk(vkQueueSubmit2(device.queue(), 1, &submitInfo, frame.inFlight.get()));
+        frames.advance();
 
         // Present image
         if (swapchain.present(device.queue(), imageIndex) != SwapchainStatus::Optimal)
