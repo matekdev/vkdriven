@@ -13,9 +13,8 @@ vcpkg_installed/
 .idea/
 *.user
 
-# Captures and profiles
+# Captures
 *.rdc
-*.tracy
 
 # ImGui window layout
 imgui.ini
