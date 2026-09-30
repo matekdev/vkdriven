@@ -22,6 +22,8 @@ find_package(slang CONFIG REQUIRED)
 
 add_executable(vkdriven
     src/main.cpp
+    src/platform/window.cpp
+    src/platform/window.h
     src/vk/check.h
     src/vk/handle.h
     src/vk/sync.h
