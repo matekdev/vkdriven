@@ -7,6 +7,7 @@
 #include <memory>
 #include <span>
 
+// SDL window we render into. Also handles SDL init/shutdown, so only create one.
 class Window
 {
   public:

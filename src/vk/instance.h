@@ -4,6 +4,8 @@
 
 #include <span>
 
+// Connection to the Vulkan driver. Loads the function pointers through volk,
+// so nothing Vulkan works until one of these exists.
 class Instance
 {
   public:

@@ -57,6 +57,8 @@ inline void destroyHandle(VkDevice device, VkCommandPool handle)
 template <typename T>
 concept DestroyableDeviceHandle = requires(VkDevice device, T handle) { destroyHandle(device, handle); };
 
+// Owns a device object that only needs a single vkDestroy* call to clean up
+// (fences, semaphores, views, samplers, ...). Move-only.
 template <DestroyableDeviceHandle T> class DeviceHandle
 {
   public:

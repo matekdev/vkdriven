@@ -5,6 +5,8 @@
 class Instance;
 class Window;
 
+// Vulkan's view of the window. The swapchain presents to this.
+// Has to be destroyed before both the instance and the window.
 class Surface
 {
   public:
