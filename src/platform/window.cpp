@@ -42,6 +42,11 @@ WindowEvents Window::pollEvents() const
             events.resized = true;
         if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat)
             events.keysPressed.push_back(event.key.key);
+        if (event.type == SDL_EVENT_MOUSE_MOTION)
+        {
+            events.mouseDeltaX += event.motion.xrel;
+            events.mouseDeltaY += event.motion.yrel;
+        }
     }
     return events;
 }
@@ -49,6 +54,11 @@ WindowEvents Window::pollEvents() const
 void Window::waitForEvent() const
 {
     SDL_WaitEvent(nullptr);
+}
+
+void Window::setRelativeMouseMode(bool enabled) const
+{
+    chk(SDL_SetWindowRelativeMouseMode(window_.get(), enabled));
 }
 
 std::span<const char* const> Window::requiredInstanceExtensions() const

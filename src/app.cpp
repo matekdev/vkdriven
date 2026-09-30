@@ -1,6 +1,5 @@
 #include "app.h"
 
-#include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 
 #include "ui/panels.h"
@@ -19,7 +18,6 @@ namespace
 {
 
 constexpr const char* scenePath = "assets/Suzanne/Suzanne.gltf";
-
 } // namespace
 
 App::App()
@@ -74,6 +72,7 @@ void App::run()
 
         imgui_.beginFrame();
         drawUi();
+        camera_.update(window_, viewportHovered_, mouseDelta_);
         imgui_.endFrame();
         drawFrame();
     }
@@ -89,6 +88,7 @@ bool App::handleEvents()
         updateSwapchain_ = true;
     if (std::ranges::contains(events.keysPressed, SDLK_F5))
         reloadRequested_ = true;
+    mouseDelta_ = {events.mouseDeltaX, events.mouseDeltaY};
     return true;
 }
 
@@ -123,8 +123,10 @@ void App::reloadShaders()
 void App::drawUi()
 {
     const ImGuiID dockspace = ImGui::DockSpaceOverViewport();
-    if (const auto requestedExtent = drawViewportPanel(dockspace, viewport_))
-        requestedViewportExtent_ = *requestedExtent;
+    const ViewportPanelState viewportPanel = drawViewportPanel(dockspace, viewport_);
+    if (viewportPanel.requestedExtent)
+        requestedViewportExtent_ = *viewportPanel.requestedExtent;
+    viewportHovered_ = viewportPanel.hovered;
     drawStatsPanel(scene_, viewport_);
 }
 
@@ -182,14 +184,7 @@ void App::updateFrameData(Frame& frame) const
     const VkExtent2D extent = viewport_.extent();
     const float aspect{static_cast<float>(extent.width) / static_cast<float>(extent.height)};
 
-    // Reverse-Z: near and far are swapped so depth 1 is the near plane and 0 is the far plane.
-    glm::mat4 projection = glm::perspective(glm::radians(60.0f), aspect, 100.0f, 0.1f);
-    // glTF is +Y up but Vulkan's clip space has +Y pointing down the screen.
-    projection[1][1] *= -1.0f;
-    const glm::mat4 view =
-        glm::lookAt(glm::vec3{0.0f, 0.0f, 3.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f});
-
-    const FrameData frameData{.viewProjection = projection * view};
+    const FrameData frameData{.view = camera_.view(), .projection = camera_.projection(aspect)};
     frame.shaderData.write(std::span{&frameData, 1});
 }
 

@@ -5,9 +5,11 @@ struct VSInput
     float2 UV;
 };
 
+// Must match FrameData in app.h.
 struct FrameData
 {
-    float4x4 viewProjection;
+    float4x4 view;
+    float4x4 projection;
 };
 
 // Must match DrawConstants in app.h.
@@ -29,8 +31,14 @@ struct VSOutput
 VSOutput main(VSInput input, uniform DrawConstants constants)
 {
     float4x4 model = constants.transforms[constants.transformIndex];
+    float4x4 view = constants.frame->view;
+    float4x4 projection = constants.frame->projection;
+
+    // Column vectors, so read right to left: model -> world -> view -> clip.
+    float4x4 mvp = mul(projection, mul(view, model));
+
     VSOutput output;
-    output.Pos = mul(constants.frame->viewProjection, mul(model, float4(input.Pos, 1.0)));
+    output.Pos = mul(mvp, float4(input.Pos, 1.0));
     output.Normal = mul((float3x3)model, input.Normal);
     output.UV = input.UV;
     return output;
