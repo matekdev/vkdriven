@@ -27,6 +27,9 @@ class ViewportTarget
     ViewportTarget(ViewportTarget&&) = delete;
     ViewportTarget& operator=(ViewportTarget&&) = delete;
 
+    // True if the extent is non-zero and differs from the current size.
+    [[nodiscard]] bool needsResize(VkExtent2D extent) const;
+
     // Recreates both images at the new size. The GPU must not be using the old ones.
     void resize(VkExtent2D extent);
 

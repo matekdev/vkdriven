@@ -20,6 +20,13 @@ ViewportTarget::~ViewportTarget()
     destroy();
 }
 
+bool ViewportTarget::needsResize(VkExtent2D extent) const
+{
+    if (extent.width == 0 || extent.height == 0)
+        return false;
+    return extent.width != extent_.width || extent.height != extent_.height;
+}
+
 void ViewportTarget::resize(VkExtent2D extent)
 {
     destroy();

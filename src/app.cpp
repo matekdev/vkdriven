@@ -2,17 +2,17 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
-#include <IconsFontAwesome6.h>
 
+#include "ui/panels.h"
+#include "util/expected.h"
 #include "vk/check.h"
+#include "vk/sync.h"
 
 #include <algorithm>
-#include <cstddef>
-#include <format>
+#include <array>
 #include <limits>
 #include <print>
 #include <span>
-#include <stdexcept>
 #include <utility>
 
 namespace
@@ -20,36 +20,17 @@ namespace
 
 constexpr const char* scenePath = "assets/Suzanne/Suzanne.gltf";
 
-template <typename T> T orThrow(std::expected<T, std::string> result)
-{
-    if (!result)
-        throw std::runtime_error{result.error()};
-    return std::move(*result);
-}
-
-VkFormat findDepthFormat(VkPhysicalDevice physical)
-{
-    for (const VkFormat format : {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT})
-    {
-        VkFormatProperties2 formatProperties{.sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2};
-        vkGetPhysicalDeviceFormatProperties2(physical, format, &formatProperties);
-        if (formatProperties.formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
-            return format;
-    }
-    throw std::runtime_error{"No supported depth/stencil format found"};
-}
-
 } // namespace
 
 App::App()
     : window_{"vkdriven", 1280, 720}, instance_{"vkdriven", window_.requiredInstanceExtensions()},
       surface_{instance_, window_}, device_{instance_, surface_}, allocator_{instance_, device_},
-      swapchain_{device_, surface_, window_}, depthFormat_{findDepthFormat(device_.physical())}, commandPool_{device_},
+      swapchain_{device_, surface_, window_}, commandPool_{device_},
       frames_{device_, allocator_, commandPool_, sizeof(FrameData)},
       scene_{orThrow(Scene::loadGltf(allocator_, commandPool_, scenePath))}, shaderDirectory_{VKDRIVEN_SHADER_DIR},
       pipeline_{orThrow(buildPipeline())}, shaderWatcher_{shaderDirectory_},
       imgui_{window_, instance_, device_, FrameResources::maxFramesInFlight, swapchain_.format()},
-      viewport_{allocator_, depthFormat_, swapchain_.extent()}
+      viewport_{allocator_, device_.depthFormat(), swapchain_.extent()}
 {
     std::println("Loaded {}: {} meshes, {} primitives, {} vertices, {} indices, {} draws, {} transforms", scenePath,
                  scene_.meshes().size(), scene_.primitives().size(), scene_.vertexCount(), scene_.indexCount(),
@@ -74,13 +55,23 @@ void App::run()
             reloadShaders();
         }
 
-        if (updateSwapchain_ && !recreateSwapchain())
+        if (updateSwapchain_)
         {
-            window_.waitForEvent();
-            continue;
+            if (!swapchain_.recreate())
+            {
+                window_.waitForEvent();
+                continue;
+            }
+            updateSwapchain_ = false;
         }
 
-        resizeViewport();
+        if (viewport_.needsResize(requestedViewportExtent_))
+        {
+            // Earlier frames may still be rendering into or sampling the old images.
+            device_.waitIdle();
+            viewport_.resize(requestedViewportExtent_);
+        }
+
         imgui_.beginFrame();
         drawUi();
         imgui_.endFrame();
@@ -101,15 +92,6 @@ bool App::handleEvents()
     return true;
 }
 
-bool App::recreateSwapchain()
-{
-    if (!swapchain_.recreate())
-        return false;
-
-    updateSwapchain_ = false;
-    return true;
-}
-
 std::expected<GraphicsPipeline, std::string> App::buildPipeline() const
 {
     return shaderCompiler_.compile(device_, shaderDirectory_ / "scene.slang")
@@ -121,7 +103,7 @@ std::expected<GraphicsPipeline, std::string> App::buildPipeline() const
                                         std::span<const VkDescriptorSetLayout>{},
                                         sizeof(DrawConstants),
                                         ViewportTarget::colorFormat,
-                                        depthFormat_};
+                                        device_.depthFormat()};
             });
 }
 
@@ -138,47 +120,12 @@ void App::reloadShaders()
     std::println("Reloaded shaders from {}", shaderDirectory_.string());
 }
 
-void App::resizeViewport()
-{
-    const VkExtent2D current = viewport_.extent();
-    if (requestedViewportExtent_.width == 0 || requestedViewportExtent_.height == 0)
-        return;
-    if (requestedViewportExtent_.width == current.width && requestedViewportExtent_.height == current.height)
-        return;
-
-    // Earlier frames may still be rendering into or sampling the old images.
-    device_.waitIdle();
-    viewport_.resize(requestedViewportExtent_);
-}
-
 void App::drawUi()
 {
     const ImGuiID dockspace = ImGui::DockSpaceOverViewport();
-
-    ImGui::SetNextWindowDockID(dockspace, ImGuiCond_FirstUseEver);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0.0f, 0.0f});
-    if (ImGui::Begin(ICON_FA_CUBE " Viewport###Viewport"))
-    {
-        const ImVec2 available = ImGui::GetContentRegionAvail();
-        requestedViewportExtent_ = {.width = static_cast<uint32_t>(std::max(available.x, 0.0f)),
-                                    .height = static_cast<uint32_t>(std::max(available.y, 0.0f))};
-        const VkExtent2D extent = viewport_.extent();
-        ImGui::Image(viewport_.texture(),
-                     ImVec2{static_cast<float>(extent.width), static_cast<float>(extent.height)});
-    }
-    ImGui::End();
-    ImGui::PopStyleVar();
-
-    const ImGuiIO& io = ImGui::GetIO();
-    ImGui::Begin(ICON_FA_CHART_SIMPLE " Stats###Stats");
-    ImGui::Text("%.2f ms (%.0f FPS)", 1000.0f / io.Framerate, io.Framerate);
-    ImGui::Text("Viewport: %u x %u", viewport_.extent().width, viewport_.extent().height);
-    ImGui::Separator();
-    ImGui::Text("Draws: %zu", scene_.draws().size());
-    ImGui::Text("Primitives: %zu", scene_.primitives().size());
-    ImGui::Text("Vertices: %zu", static_cast<size_t>(scene_.vertexCount()));
-    ImGui::Text("Indices: %zu", static_cast<size_t>(scene_.indexCount()));
-    ImGui::End();
+    if (const auto requestedExtent = drawViewportPanel(dockspace, viewport_))
+        requestedViewportExtent_ = *requestedExtent;
+    drawStatsPanel(scene_, viewport_);
 }
 
 void App::drawFrame()
@@ -265,32 +212,29 @@ void App::recordScenePass(VkCommandBuffer cb, const Frame& frame) const
 
     // The previous frame's UI pass may still be sampling the viewport image, so wait for its fragment
     // shaders before overwriting it. The image is cleared anyway, so the old contents are discarded.
-    const auto outputBarriers = std::to_array<VkImageMemoryBarrier2>({
-        {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-         .srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-         .srcAccessMask = VK_ACCESS_2_NONE,
-         .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-         .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-         .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-         .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-         .image = viewport_.color().handle(),
-         .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1}},
-        {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-         .srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-         .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-         .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-         .dstAccessMask =
-             VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-         .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-         .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-         .image = viewport_.depth().handle(),
-         .subresourceRange{
-             .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, .levelCount = 1, .layerCount = 1}},
-    });
-    VkDependencyInfo outputDependencyInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-                                          .imageMemoryBarrierCount = static_cast<uint32_t>(outputBarriers.size()),
-                                          .pImageMemoryBarriers = outputBarriers.data()};
-    vkCmdPipelineBarrier2(cb, &outputDependencyInfo);
+    imageBarriers(
+        cb,
+        std::to_array<VkImageMemoryBarrier2>({
+            {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+             .srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+             .srcAccessMask = VK_ACCESS_2_NONE,
+             .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+             .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+             .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+             .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+             .image = viewport_.color().handle(),
+             .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)},
+            {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+             .srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+             .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+             .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+             .dstAccessMask =
+                 VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+             .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+             .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+             .image = viewport_.depth().handle(),
+             .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)},
+        }));
 
     VkRenderingAttachmentInfo colorAttachmentInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                                                   .imageView = viewport_.color().view(),
@@ -337,38 +281,28 @@ void App::recordScenePass(VkCommandBuffer cb, const Frame& frame) const
     }
     vkCmdEndRendering(cb);
 
-    VkImageMemoryBarrier2 barrierSample{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-        .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-        .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-        .dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-        .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .image = viewport_.color().handle(),
-        .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1}};
-    VkDependencyInfo sampleDependencyInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-                                          .imageMemoryBarrierCount = 1,
-                                          .pImageMemoryBarriers = &barrierSample};
-    vkCmdPipelineBarrier2(cb, &sampleDependencyInfo);
+    imageBarrier(cb, {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                      .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                      .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                      .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                      .dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+                      .oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                      .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                      .image = viewport_.color().handle(),
+                      .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)});
 }
 
 void App::recordUiPass(VkCommandBuffer cb, uint32_t imageIndex) const
 {
-    VkImageMemoryBarrier2 barrierOutput{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-        .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .srcAccessMask = VK_ACCESS_2_NONE,
-        .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-        .image = swapchain_.image(imageIndex),
-        .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1}};
-    VkDependencyInfo outputDependencyInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-                                          .imageMemoryBarrierCount = 1,
-                                          .pImageMemoryBarriers = &barrierOutput};
-    vkCmdPipelineBarrier2(cb, &outputDependencyInfo);
+    imageBarrier(cb, {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                      .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                      .srcAccessMask = VK_ACCESS_2_NONE,
+                      .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                      .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                      .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                      .image = swapchain_.image(imageIndex),
+                      .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)});
 
     VkRenderingAttachmentInfo colorAttachmentInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                                                   .imageView = swapchain_.view(imageIndex),
@@ -385,18 +319,13 @@ void App::recordUiPass(VkCommandBuffer cb, uint32_t imageIndex) const
     imgui_.record(cb);
     vkCmdEndRendering(cb);
 
-    VkImageMemoryBarrier2 barrierPresent{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-        .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-        .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstAccessMask = VK_ACCESS_2_NONE,
-        .oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-        .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        .image = swapchain_.image(imageIndex),
-        .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1}};
-    VkDependencyInfo presentDependencyInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-                                           .imageMemoryBarrierCount = 1,
-                                           .pImageMemoryBarriers = &barrierPresent};
-    vkCmdPipelineBarrier2(cb, &presentDependencyInfo);
+    imageBarrier(cb, {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                      .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                      .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                      .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                      .dstAccessMask = VK_ACCESS_2_NONE,
+                      .oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                      .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                      .image = swapchain_.image(imageIndex),
+                      .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)});
 }

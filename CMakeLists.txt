@@ -62,6 +62,8 @@ add_executable(vkdriven
     src/ui/imgui_layer.h
     src/ui/imgui_style.cpp
     src/ui/imgui_style.h
+    src/ui/panels.cpp
+    src/ui/panels.h
     src/ui/viewport_target.cpp
     src/ui/viewport_target.h
     src/vk/allocator.cpp
@@ -95,6 +97,7 @@ add_executable(vkdriven
     src/vk/texture.h
     src/vk/upload.cpp
     src/vk/upload.h
+    src/util/expected.h
 )
 
 target_include_directories(vkdriven PRIVATE src)

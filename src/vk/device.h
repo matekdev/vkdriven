@@ -40,6 +40,11 @@ class Device
         return queueFamily_;
     }
 
+    [[nodiscard]] VkFormat depthFormat() const
+    {
+        return depthFormat_;
+    }
+
     void waitIdle() const;
 
   private:
@@ -47,4 +52,5 @@ class Device
     VkDevice device_{VK_NULL_HANDLE};
     VkQueue queue_{VK_NULL_HANDLE};
     uint32_t queueFamily_{0};
+    VkFormat depthFormat_{VK_FORMAT_UNDEFINED};
 };
