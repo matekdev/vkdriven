@@ -4,17 +4,19 @@
 
 #include "vk/handle.h"
 
+#include <cstdint>
 #include <span>
 
 class Device;
 
 // The mesh pipeline: Vertex input, one color + one depth attachment (dynamic rendering, reverse-Z),
-// dynamic viewport/scissor, and a single push constant holding the shader data buffer's address.
+// dynamic viewport/scissor, and one push constant block visible to the vertex stage.
 class GraphicsPipeline
 {
   public:
     GraphicsPipeline(const Device& device, VkShaderModule shaderModule,
-                     std::span<const VkDescriptorSetLayout> setLayouts, VkFormat colorFormat, VkFormat depthFormat);
+                     std::span<const VkDescriptorSetLayout> setLayouts, uint32_t pushConstantSize, VkFormat colorFormat,
+                     VkFormat depthFormat);
 
     [[nodiscard]] VkPipeline handle() const
     {

@@ -1,6 +1,6 @@
 #include "vk/graphics_pipeline.h"
 
-#include "scene/mesh.h"
+#include "scene/vertex.h"
 #include "vk/check.h"
 #include "vk/device.h"
 
@@ -8,10 +8,10 @@
 #include <cstdint>
 
 GraphicsPipeline::GraphicsPipeline(const Device& device, VkShaderModule shaderModule,
-                                   std::span<const VkDescriptorSetLayout> setLayouts, VkFormat colorFormat,
-                                   VkFormat depthFormat)
+                                   std::span<const VkDescriptorSetLayout> setLayouts, uint32_t pushConstantSize,
+                                   VkFormat colorFormat, VkFormat depthFormat)
 {
-    VkPushConstantRange pushConstantRange{.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, .size = sizeof(VkDeviceAddress)};
+    VkPushConstantRange pushConstantRange{.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, .size = pushConstantSize};
     VkPipelineLayoutCreateInfo layoutCI{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                                         .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
                                         .pSetLayouts = setLayouts.data(),

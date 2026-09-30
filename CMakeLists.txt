@@ -16,9 +16,10 @@ find_package(volk CONFIG REQUIRED)
 find_package(SDL3 CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
-find_package(tinyobjloader CONFIG REQUIRED)
 find_package(Ktx CONFIG REQUIRED)
 find_package(slang CONFIG REQUIRED)
+find_package(fastgltf CONFIG REQUIRED)
+find_package(Stb REQUIRED)
 
 add_executable(vkdriven
     src/app.cpp
@@ -28,8 +29,11 @@ add_executable(vkdriven
     src/platform/file_watcher.h
     src/platform/window.cpp
     src/platform/window.h
-    src/scene/mesh.cpp
-    src/scene/mesh.h
+    src/scene/gltf.cpp
+    src/scene/gltf.h
+    src/scene/scene.cpp
+    src/scene/scene.h
+    src/scene/vertex.h
     src/vk/allocator.cpp
     src/vk/allocator.h
     src/vk/bindless_textures.cpp
@@ -59,6 +63,8 @@ add_executable(vkdriven
     src/vk/sync.h
     src/vk/texture.cpp
     src/vk/texture.h
+    src/vk/upload.cpp
+    src/vk/upload.h
 )
 
 target_include_directories(vkdriven PRIVATE src)
@@ -70,10 +76,12 @@ target_link_libraries(vkdriven PRIVATE
     SDL3::SDL3
     GPUOpen::VulkanMemoryAllocator
     glm::glm
-    tinyobjloader::tinyobjloader
     KTX::ktx
     slang::slang
+    fastgltf::fastgltf
 )
+
+target_include_directories(vkdriven SYSTEM PRIVATE ${Stb_INCLUDE_DIR})
 
 target_compile_definitions(vkdriven PRIVATE
     GLM_FORCE_DEPTH_ZERO_TO_ONE
