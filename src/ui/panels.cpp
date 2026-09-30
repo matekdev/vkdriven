@@ -9,24 +9,25 @@
 #include <cstddef>
 #include <cstdint>
 
-std::optional<VkExtent2D> drawViewportPanel(ImGuiID dockspace, const ViewportTarget& viewport)
+ViewportPanelState drawViewportPanel(ImGuiID dockspace, const ViewportTarget& viewport)
 {
-    std::optional<VkExtent2D> requestedExtent;
+    ViewportPanelState state;
 
     ImGui::SetNextWindowDockID(dockspace, ImGuiCond_FirstUseEver);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0.0f, 0.0f});
     if (ImGui::Begin(ICON_FA_CUBE " Viewport###Viewport"))
     {
         const ImVec2 available = ImGui::GetContentRegionAvail();
-        requestedExtent = VkExtent2D{.width = static_cast<uint32_t>(std::max(available.x, 0.0f)),
-                                     .height = static_cast<uint32_t>(std::max(available.y, 0.0f))};
+        state.requestedExtent = VkExtent2D{.width = static_cast<uint32_t>(std::max(available.x, 0.0f)),
+                                           .height = static_cast<uint32_t>(std::max(available.y, 0.0f))};
         const VkExtent2D extent = viewport.extent();
         ImGui::Image(viewport.texture(), ImVec2{static_cast<float>(extent.width), static_cast<float>(extent.height)});
+        state.hovered = ImGui::IsItemHovered();
     }
     ImGui::End();
     ImGui::PopStyleVar();
 
-    return requestedExtent;
+    return state;
 }
 
 void drawStatsPanel(const Scene& scene, const ViewportTarget& viewport)

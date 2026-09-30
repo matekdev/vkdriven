@@ -53,7 +53,7 @@ Presets: `debug` and `release` (RelWithDebInfo). vcpkg installs all dependencies
 - `src/platform/`: SDL window and the file watcher used for shader hot-reload.
 - `src/ui/`: `ImGuiLayer` (ImGui context and SDL3/Vulkan backends, docking enabled) and `ViewportTarget` (the offscreen color/depth images the scene renders into, shown in the ImGui "Viewport" window), and `panels` (free functions that draw each ImGui window).
 - `src/util/`: small header-only helpers not tied to Vulkan (e.g. `orThrow` for `std::expected`).
-- `src/scene/`: glTF loading (`parseGltf`) and the `Scene`: one shared vertex/index buffer, the primitive and draw lists, and the world-transforms buffer. `Vertex` (with its vertex-input description) lives here too.
+- `src/scene/`: glTF loading (`parseGltf`) and the `Scene`: one shared vertex/index buffer, the primitive and draw lists, and the world-transforms buffer. `Vertex` (with its vertex-input description) and the fly `Camera` live here too.
 - New `.cpp`/`.h` files must be added to `add_executable` in `CMakeLists.txt`.
 - `shaders/`: Slang shaders, compiled to SPIR-V at runtime through the Slang API. There's no build-time shader step. CMake copies `shaders/` next to the executable. Debug builds read them from the source tree instead (`VKDRIVEN_SHADER_DIR`) and hot-reload on save or F5.
 - `docs/roadmap.md`: phased checklist. Check items off when they're done.

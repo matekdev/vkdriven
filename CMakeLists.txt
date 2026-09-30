@@ -53,6 +53,8 @@ add_executable(vkdriven
     src/platform/file_watcher.h
     src/platform/window.cpp
     src/platform/window.h
+    src/scene/camera.cpp
+    src/scene/camera.h
     src/scene/gltf.cpp
     src/scene/gltf.h
     src/scene/scene.cpp

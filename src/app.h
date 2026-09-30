@@ -6,6 +6,7 @@
 
 #include "platform/file_watcher.h"
 #include "platform/window.h"
+#include "scene/camera.h"
 #include "scene/scene.h"
 #include "ui/imgui_layer.h"
 #include "ui/viewport_target.h"
@@ -27,7 +28,8 @@
 // Written once per frame into the frame's shader data buffer.
 struct FrameData
 {
-    glm::mat4 viewProjection;
+    glm::mat4 view;
+    glm::mat4 projection;
 };
 
 // Pushed before every draw. Must match DrawConstants in shaders/scene.slang.
@@ -80,6 +82,10 @@ class App
     FileWatcher shaderWatcher_;
     ImGuiLayer imgui_;
     ViewportTarget viewport_;
+
+    Camera camera_{glm::vec3{0.0f, 0.0f, 3.0f}, 0.0f, 0.0f};
+    glm::vec2 mouseDelta_{};
+    bool viewportHovered_{false};
 
     VkExtent2D requestedViewportExtent_{};
     bool updateSwapchain_{false};

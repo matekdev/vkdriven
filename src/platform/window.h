@@ -15,6 +15,8 @@ struct WindowEvents
     bool quitRequested{false};
     bool resized{false};
     std::vector<SDL_Keycode> keysPressed;
+    float mouseDeltaX{0.0f};
+    float mouseDeltaY{0.0f};
 };
 
 // SDL window we render into. Also handles SDL init/shutdown, so only create one.
@@ -41,6 +43,8 @@ class Window
     [[nodiscard]] WindowEvents pollEvents() const;
     // Sleeps until the next event arrives, e.g. while the window is minimized.
     void waitForEvent() const;
+    // Hides the cursor and keeps reporting mouse motion even at the edge of the screen.
+    void setRelativeMouseMode(bool enabled) const;
 
   private:
     struct SdlWindowDeleter
