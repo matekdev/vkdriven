@@ -18,6 +18,7 @@
 #include <slang.h>
 #include <tiny_obj_loader.h>
 
+#include "platform/window.h"
 #include "vk/check.h"
 #include "vk/handle.h"
 #include "vk/sync.h"
@@ -93,13 +94,8 @@ struct Vertex
 
 int main(int, char**)
 {
-    if (!SDL_Init(SDL_INIT_VIDEO))
-    {
-        std::println(stderr, "SDL_Init failed: {}", SDL_GetError());
-        return 1;
-    }
+    const Window window{"vkdriven", 1280, 720};
 
-    chk(SDL_Vulkan_LoadLibrary(nullptr));
     chk(volkInitialize());
 
     // Setup vulkan instance.
@@ -197,19 +193,7 @@ int main(int, char**)
                                        .instance = instance};
     chk(vmaCreateAllocator(&allocatorCI, &allocator));
 
-    constexpr auto windowWidth = 1280;
-    constexpr auto windowHeight = 720;
-    constexpr auto windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
-
-    auto* const window = SDL_CreateWindow("vkdriven", windowWidth, windowHeight, windowFlags);
-    if (!window)
-    {
-        std::println(stderr, "SDL_CreateWindow failed: {}", SDL_GetError());
-        SDL_Quit();
-        return 1;
-    }
-
-    chk(SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface));
+    chk(SDL_Vulkan_CreateSurface(window.handle(), instance, nullptr, &surface));
 
     // Query surface capabilities.
     VkSurfaceCapabilitiesKHR surfaceCaps{};
@@ -219,10 +203,7 @@ int main(int, char**)
     VkExtent2D swapchainExtent{surfaceCaps.currentExtent};
     if (surfaceCaps.currentExtent.width == 0xFFFFFFFF)
     {
-        int pixelWidth = 0;
-        int pixelHeight = 0;
-        chk(SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight));
-        swapchainExtent = {.width = static_cast<uint32_t>(pixelWidth), .height = static_cast<uint32_t>(pixelHeight)};
+        swapchainExtent = window.sizeInPixels();
     }
 
     const VkFormat imageFormat{VK_FORMAT_B8G8R8A8_SRGB};
@@ -730,11 +711,7 @@ int main(int, char**)
             swapchainExtent = surfaceCaps.currentExtent;
             if (surfaceCaps.currentExtent.width == 0xFFFFFFFF)
             {
-                int pixelWidth = 0;
-                int pixelHeight = 0;
-                chk(SDL_GetWindowSizeInPixels(window, &pixelWidth, &pixelHeight));
-                swapchainExtent = {.width = static_cast<uint32_t>(pixelWidth),
-                                   .height = static_cast<uint32_t>(pixelHeight)};
+                swapchainExtent = window.sizeInPixels();
             }
             if (swapchainExtent.width == 0 || swapchainExtent.height == 0)
             {
@@ -973,7 +950,5 @@ int main(int, char**)
     vkDestroyDevice(device, nullptr);
     vkDestroyInstance(instance, nullptr);
 
-    SDL_DestroyWindow(window);
-    SDL_Quit();
     return 0;
 }
