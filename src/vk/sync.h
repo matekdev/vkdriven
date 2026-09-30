@@ -29,7 +29,7 @@ inline VkImageSubresourceRange subresourceRange(VkImageAspectFlags aspect)
     return {.aspectMask = aspect, .levelCount = 1, .layerCount = 1};
 }
 
-inline void imageBarriers(VkCommandBuffer cb, std::span<const VkImageMemoryBarrier2> barriers)
+inline void pipelineBarrier(VkCommandBuffer cb, std::span<const VkImageMemoryBarrier2> barriers)
 {
     VkDependencyInfo dependencyInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                                     .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
@@ -37,7 +37,7 @@ inline void imageBarriers(VkCommandBuffer cb, std::span<const VkImageMemoryBarri
     vkCmdPipelineBarrier2(cb, &dependencyInfo);
 }
 
-inline void imageBarrier(VkCommandBuffer cb, const VkImageMemoryBarrier2& barrier)
+inline void pipelineBarrier(VkCommandBuffer cb, const VkImageMemoryBarrier2& barrier)
 {
-    imageBarriers(cb, std::span{&barrier, 1});
+    pipelineBarrier(cb, std::span{&barrier, 1});
 }
