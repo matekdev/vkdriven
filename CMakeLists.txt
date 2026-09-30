@@ -28,6 +28,8 @@ add_executable(vkdriven
     src/scene/mesh.h
     src/vk/allocator.cpp
     src/vk/allocator.h
+    src/vk/bindless_textures.cpp
+    src/vk/bindless_textures.h
     src/vk/buffer.cpp
     src/vk/buffer.h
     src/vk/check.h

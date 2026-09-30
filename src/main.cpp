@@ -12,6 +12,7 @@
 #include "platform/window.h"
 #include "scene/mesh.h"
 #include "vk/allocator.h"
+#include "vk/bindless_textures.h"
 #include "vk/buffer.h"
 #include "vk/check.h"
 #include "vk/command_pool.h"
@@ -43,10 +44,6 @@ struct ShaderData
 } shaderData{};
 
 constexpr uint32_t maxFramesInFlight = 2;
-
-VkDescriptorPool descriptorPool{VK_NULL_HANDLE};
-VkDescriptorSetLayout descriptorSetLayoutTex{VK_NULL_HANDLE};
-VkDescriptorSet descriptorSetTex{VK_NULL_HANDLE};
 
 Slang::ComPtr<slang::IGlobalSession> slangGlobalSession;
 
@@ -136,7 +133,6 @@ int main(int, char**)
     // Texture loading.
     constexpr uint32_t textureCount = 3;
     std::vector<Texture> textures;
-    std::vector<VkDescriptorImageInfo> textureDescriptors{};
     for (uint32_t i = 0; i < textureCount; i++)
     {
         auto texture = Texture::loadKtx(device, allocator, commandPool, std::format("assets/suzanne{}.ktx", i));
@@ -145,52 +141,12 @@ int main(int, char**)
             std::println(stderr, "{}", texture.error());
             return 1;
         }
-        textureDescriptors.push_back(texture->descriptorInfo());
         textures.push_back(std::move(*texture));
     }
 
     // Descriptor indexing.
-    VkDescriptorBindingFlags descVariableFlag{VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT};
-    VkDescriptorSetLayoutBindingFlagsCreateInfo descBindingFlags{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
-        .bindingCount = 1,
-        .pBindingFlags = &descVariableFlag};
-    VkDescriptorSetLayoutBinding descLayoutBindingTex{.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                                      .descriptorCount = static_cast<uint32_t>(textures.size()),
-                                                      .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT};
-    VkDescriptorSetLayoutCreateInfo descLayoutTexCI{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                                                    .pNext = &descBindingFlags,
-                                                    .bindingCount = 1,
-                                                    .pBindings = &descLayoutBindingTex};
-    chk(vkCreateDescriptorSetLayout(device.handle(), &descLayoutTexCI, nullptr, &descriptorSetLayoutTex));
-
-    VkDescriptorPoolSize poolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                  .descriptorCount = static_cast<uint32_t>(textures.size())};
-    VkDescriptorPoolCreateInfo descPoolCI{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-                                          .maxSets = 1,
-                                          .poolSizeCount = 1,
-                                          .pPoolSizes = &poolSize};
-    chk(vkCreateDescriptorPool(device.handle(), &descPoolCI, nullptr, &descriptorPool));
-
-    uint32_t variableDescCount{static_cast<uint32_t>(textures.size())};
-    VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescCountAI{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO,
-        .descriptorSetCount = 1,
-        .pDescriptorCounts = &variableDescCount};
-    VkDescriptorSetAllocateInfo texDescSetAlloc{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                                                .pNext = &variableDescCountAI,
-                                                .descriptorPool = descriptorPool,
-                                                .descriptorSetCount = 1,
-                                                .pSetLayouts = &descriptorSetLayoutTex};
-    chk(vkAllocateDescriptorSets(device.handle(), &texDescSetAlloc, &descriptorSetTex));
-
-    VkWriteDescriptorSet writeDescSet{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                                      .dstSet = descriptorSetTex,
-                                      .dstBinding = 0,
-                                      .descriptorCount = static_cast<uint32_t>(textureDescriptors.size()),
-                                      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                      .pImageInfo = textureDescriptors.data()};
-    vkUpdateDescriptorSets(device.handle(), 1, &writeDescSet, 0, nullptr);
+    const BindlessTextures bindlessTextures{device, textureCount};
+    bindlessTextures.write(textures);
 
     // Slang compiler setup.
     chk(slang::createGlobalSession(slangGlobalSession.writeRef()));
@@ -226,10 +182,11 @@ int main(int, char**)
     chk(vkCreateShaderModule(device.handle(), &shaderModuleCI, nullptr, &shaderModule));
 
     // Graphics pipeline.
+    const VkDescriptorSetLayout textureSetLayout = bindlessTextures.layout();
     VkPushConstantRange pushConstantRange{.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, .size = sizeof(VkDeviceAddress)};
     VkPipelineLayoutCreateInfo pipelineLayoutCI{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                                                 .setLayoutCount = 1,
-                                                .pSetLayouts = &descriptorSetLayoutTex,
+                                                .pSetLayouts = &textureSetLayout,
                                                 .pushConstantRangeCount = 1,
                                                 .pPushConstantRanges = &pushConstantRange};
     chk(vkCreatePipelineLayout(device.handle(), &pipelineLayoutCI, nullptr, &pipelineLayout));
@@ -462,8 +419,8 @@ int main(int, char**)
         vkCmdSetScissor(cb, 0, 1, &scissor);
 
         vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-        vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSetTex, 0,
-                                nullptr);
+        const VkDescriptorSet textureSet = bindlessTextures.set();
+        vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &textureSet, 0, nullptr);
         VkDeviceSize vOffset{0};
         const VkBuffer meshBuffer = mesh->buffer();
         vkCmdBindVertexBuffers(cb, 0, 1, &meshBuffer, &vOffset);
@@ -518,8 +475,6 @@ int main(int, char**)
 
     // Cleaning up
     device.waitIdle();
-    vkDestroyDescriptorSetLayout(device.handle(), descriptorSetLayoutTex, nullptr);
-    vkDestroyDescriptorPool(device.handle(), descriptorPool, nullptr);
     vkDestroyPipeline(device.handle(), pipeline, nullptr);
     vkDestroyPipelineLayout(device.handle(), pipelineLayout, nullptr);
     vkDestroyShaderModule(device.handle(), shaderModule, nullptr);
