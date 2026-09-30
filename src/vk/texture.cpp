@@ -27,8 +27,6 @@ struct KtxTextureDeleter
     }
 };
 
-using KtxTexturePtr = std::unique_ptr<ktxTexture, KtxTextureDeleter>;
-
 } // namespace
 
 Texture::Texture(Image image, DeviceHandle<VkSampler> sampler) : image_{std::move(image)}, sampler_{std::move(sampler)}
@@ -42,7 +40,7 @@ std::expected<Texture, std::string> Texture::loadKtx(const Device& device, const
     if (ktxTexture_CreateFromNamedFile(path.string().c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &rawKtx) !=
         KTX_SUCCESS)
         return std::unexpected{std::format("Failed to load texture {}", path.string())};
-    const KtxTexturePtr ktx{rawKtx};
+    const std::unique_ptr<ktxTexture, KtxTextureDeleter> ktx{rawKtx};
 
     std::vector<VkBufferImageCopy> copyRegions{};
     for (uint32_t mip = 0; mip < ktx->numLevels; mip++)
