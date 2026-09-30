@@ -5,6 +5,7 @@
 #include <SDL3/SDL_video.h>
 
 #include <memory>
+#include <span>
 
 class Window
 {
@@ -23,6 +24,7 @@ class Window
     }
 
     [[nodiscard]] VkExtent2D sizeInPixels() const;
+    [[nodiscard]] std::span<const char* const> requiredInstanceExtensions() const;
 
   private:
     struct SdlWindowDeleter

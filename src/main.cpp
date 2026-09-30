@@ -21,6 +21,8 @@
 #include "platform/window.h"
 #include "vk/check.h"
 #include "vk/handle.h"
+#include "vk/instance.h"
+#include "vk/surface.h"
 #include "vk/sync.h"
 
 #include <array>
@@ -34,7 +36,6 @@
 VkDevice device{VK_NULL_HANDLE};
 VkQueue queue{VK_NULL_HANDLE};
 VmaAllocator allocator{VK_NULL_HANDLE};
-VkSurfaceKHR surface{VK_NULL_HANDLE};
 VkSwapchainKHR swapchain{VK_NULL_HANDLE};
 std::vector<VkImage> swapchainImages;
 std::vector<VkImageView> swapchainImageViews;
@@ -96,31 +97,14 @@ int main(int, char**)
 {
     const Window window{"vkdriven", 1280, 720};
 
-    chk(volkInitialize());
-
-    // Setup vulkan instance.
-    auto appInfo = VkApplicationInfo{
-        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pApplicationName = "vkdriven",
-        .apiVersion = VK_API_VERSION_1_3,
-    };
-
-    uint32_t instanceExtensionsCount = 0;
-    char const* const* instanceExtensions{SDL_Vulkan_GetInstanceExtensions(&instanceExtensionsCount)};
-
-    auto instanceCreateInfo = VkInstanceCreateInfo{.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-                                                   .pApplicationInfo = &appInfo,
-                                                   .enabledExtensionCount = instanceExtensionsCount,
-                                                   .ppEnabledExtensionNames = instanceExtensions};
-    VkInstance instance;
-    chk(vkCreateInstance(&instanceCreateInfo, nullptr, &instance));
-    volkLoadInstance(instance);
+    const Instance instance{"vkdriven", window.requiredInstanceExtensions()};
+    const Surface surface{instance, window};
 
     // Choose a physical device.
     uint32_t deviceCount = 0;
-    chk(vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr));
+    chk(vkEnumeratePhysicalDevices(instance.handle(), &deviceCount, nullptr));
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    chk(vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data()));
+    chk(vkEnumeratePhysicalDevices(instance.handle(), &deviceCount, devices.data()));
 
     // Device information
     constexpr int deviceIndex = 0; // hardcoded to use my GPU for now...
@@ -146,7 +130,7 @@ int main(int, char**)
             break;
         }
     }
-    chk(SDL_Vulkan_GetPresentationSupport(instance, devices[deviceIndex], queueFamily));
+    chk(SDL_Vulkan_GetPresentationSupport(instance.handle(), devices[deviceIndex], queueFamily));
 
     const auto queuePriority = 1.0f;
     auto queueInfo = VkDeviceQueueCreateInfo{.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -190,14 +174,11 @@ int main(int, char**)
                                        .physicalDevice = devices[deviceIndex],
                                        .device = device,
                                        .pVulkanFunctions = &vkFunctions,
-                                       .instance = instance};
+                                       .instance = instance.handle()};
     chk(vmaCreateAllocator(&allocatorCI, &allocator));
-
-    chk(SDL_Vulkan_CreateSurface(window.handle(), instance, nullptr, &surface));
-
     // Query surface capabilities.
     VkSurfaceCapabilitiesKHR surfaceCaps{};
-    chk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(devices[deviceIndex], surface, &surfaceCaps));
+    chk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(devices[deviceIndex], surface.handle(), &surfaceCaps));
 
     // Swapchain setup.
     VkExtent2D swapchainExtent{surfaceCaps.currentExtent};
@@ -208,7 +189,7 @@ int main(int, char**)
 
     const VkFormat imageFormat{VK_FORMAT_B8G8R8A8_SRGB};
     VkSwapchainCreateInfoKHR swapchainCI{.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-                                         .surface = surface,
+                                         .surface = surface.handle(),
                                          .minImageCount = surfaceCaps.minImageCount,
                                          .imageFormat = imageFormat,
                                          .imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR,
@@ -707,7 +688,7 @@ int main(int, char**)
         // Recreate swapchain
         if (updateSwapchain)
         {
-            chk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(devices[deviceIndex], surface, &surfaceCaps));
+            chk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(devices[deviceIndex], surface.handle(), &surfaceCaps));
             swapchainExtent = surfaceCaps.currentExtent;
             if (surfaceCaps.currentExtent.width == 0xFFFFFFFF)
             {
@@ -945,10 +926,8 @@ int main(int, char**)
     vkDestroyShaderModule(device, shaderModule, nullptr);
     vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroySwapchainKHR(device, swapchain, nullptr);
-    vkDestroySurfaceKHR(instance, surface, nullptr);
     vmaDestroyAllocator(allocator);
     vkDestroyDevice(device, nullptr);
-    vkDestroyInstance(instance, nullptr);
 
     return 0;
 }
