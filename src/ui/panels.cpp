@@ -2,6 +2,7 @@
 
 #include <IconsFontAwesome6.h>
 
+#include "scene/light.h"
 #include "scene/scene.h"
 #include "ui/viewport_target.h"
 
@@ -41,5 +42,13 @@ void drawStatsPanel(const Scene& scene, const ViewportTarget& viewport)
     ImGui::Text("Primitives: %zu", scene.primitives().size());
     ImGui::Text("Vertices: %zu", static_cast<size_t>(scene.vertexCount()));
     ImGui::Text("Indices: %zu", static_cast<size_t>(scene.indexCount()));
+    ImGui::End();
+}
+
+void drawLightPanel(DirectionalLight& light)
+{
+    ImGui::Begin(ICON_FA_SUN " Light###Light");
+    ImGui::SliderAngle("Azimuth", &light.azimuthRadians, -180.0f, 180.0f);
+    ImGui::SliderAngle("Elevation", &light.elevationRadians, -90.0f, 90.0f);
     ImGui::End();
 }
