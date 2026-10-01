@@ -28,7 +28,7 @@ build\debug\bin\vkdriven.exe
 
 - Vulkan 1.3 with dynamic rendering, synchronization2, buffer device address and bindless descriptors
 - Slang shaders compiled to SPIR-V at runtime
-- glTF 2.0 scenes with KTX2 compressed textures
+- glTF 2.0 scenes with textures and GPU-generated mipmaps
 - PBR lighting, image-based lighting and cascaded shadow maps
 - GPU-driven rendering: compute culling, one indirect draw call for the whole scene, two-pass Hi-Z occlusion culling
 - Meshlets with task/mesh shaders, plus a fallback path without mesh shaders

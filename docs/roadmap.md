@@ -82,7 +82,7 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 
 ### P2: Assets & scene (~20h, 4 weeks)
 - [x] Add **fastgltf** and move from OBJ (tinyobjloader) to glTF 2.0 loading
-- [ ] Textures: KTX2 via KTX-Software, with BC7/BC5 compression and full mip chains (use `toktx` or `basisu` offline). Fall back to generating mips at runtime.
+- [ ] Textures: glTF PNG/JPEG decoded with stb_image, full mip chains generated on the GPU
 - [x] **One big vertex buffer + one big index buffer** for the whole scene (sets up GPU-driven rendering)
 - [ ] Flattened GPU scene data in SSBOs: transforms, materials, and a per-draw array `{meshIndex, materialIndex, transformIndex}`
 - [ ] Vertex quantization/compression with meshoptimizer (optional)
@@ -120,6 +120,7 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
   - [ ] Culling shader occupancy (changing workgroup size, register usage)
   - [ ] Shadow pass cost vs. cascade count and resolution
   - [ ] Mesh shader path vs. indirect-draw path, on one or more GPUs
+  - [ ] (Optional) PNG vs. KTX2/BC7 textures (`KHR_texture_basisu`, transcoded with KTX-Software): VRAM, load time and frame time
 - [ ] 📝 Blog: one post per case study
 
 ---
