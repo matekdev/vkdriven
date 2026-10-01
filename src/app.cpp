@@ -30,7 +30,7 @@ App::App()
 {
     std::println("Loaded {}: {} meshes, {} primitives, {} vertices, {} indices, {} draws, {} transforms", scenePath,
                  scene_.meshes().size(), scene_.primitives().size(), scene_.vertexCount(), scene_.indexCount(),
-                 scene_.draws().size(), scene_.transformCount());
+                 scene_.draws().size(), scene_.transforms().size());
 }
 
 App::~App()
@@ -154,7 +154,10 @@ void App::updateFrameData(Frame& frame) const
     const VkExtent2D extent = viewport_.extent();
     const float aspect{static_cast<float>(extent.width) / static_cast<float>(extent.height)};
 
-    const FrameData frameData{.view = camera_.view(), .projection = camera_.projection(aspect)};
+    const glm::vec3 directionToLight{glm::normalize(glm::vec3{1.0f, 1.0f, 0.5f})};
+    const FrameData frameData{.view = camera_.view(),
+                              .projection = camera_.projection(aspect),
+                              .directionToLight = glm::vec4{directionToLight, 0.0f}};
     frame.shaderData.write(std::span{&frameData, 1});
 }
 

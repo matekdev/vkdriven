@@ -78,7 +78,7 @@ std::expected<Scene, std::string> Scene::loadGltf(const Allocator& allocator, co
     if (vertices.empty())
         return std::unexpected{std::format("{} contains no triangle geometry", path.string())};
 
-    std::vector<glm::mat4> transforms;
+    std::vector<glm::mat4>& transforms = scene.transforms_;
     if (!asset->scenes.empty())
     {
         fastgltf::iterateSceneNodes(*asset, asset->defaultScene.value_or(0), fastgltf::math::fmat4x4{},
@@ -104,10 +104,7 @@ std::expected<Scene, std::string> Scene::loadGltf(const Allocator& allocator, co
 
     scene.vertexBuffer_ = uploadDeviceLocalBuffer(allocator, commandPool, vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     scene.indexBuffer_ = uploadDeviceLocalBuffer(allocator, commandPool, indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    scene.transformsBuffer_ =
-        uploadDeviceLocalBuffer(allocator, commandPool, transforms, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
     scene.vertexCount_ = static_cast<uint32_t>(vertices.size());
     scene.indexCount_ = static_cast<uint32_t>(indices.size());
-    scene.transformCount_ = static_cast<uint32_t>(transforms.size());
     return scene;
 }
