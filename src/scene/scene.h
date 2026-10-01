@@ -2,6 +2,8 @@
 
 #include <volk.h>
 
+#include <glm/glm.hpp>
+
 #include "vk/buffer.h"
 
 #include <cstdint>
@@ -32,7 +34,7 @@ struct SceneMesh
     uint32_t primitiveCount{0};
 };
 
-// One thing to draw: which primitive, and which world transform (index into the transforms buffer).
+// One thing to draw: which primitive, and which world transform (index into the scene's transforms).
 // A mesh placed by several nodes produces one Draw per node per primitive.
 struct Draw
 {
@@ -41,7 +43,7 @@ struct Draw
 };
 
 // All geometry of a glTF file in one device-local vertex buffer and one 32-bit index buffer, plus the
-// node hierarchy flattened into a draw list and a buffer of world matrices the shaders read by address.
+// node hierarchy flattened into a draw list and a list of world matrices.
 class Scene
 {
   public:
@@ -75,9 +77,9 @@ class Scene
         return draws_;
     }
 
-    [[nodiscard]] VkDeviceAddress transformsAddress() const
+    [[nodiscard]] std::span<const glm::mat4> transforms() const
     {
-        return transformsBuffer_.deviceAddress();
+        return transforms_;
     }
 
     [[nodiscard]] uint32_t vertexCount() const
@@ -90,21 +92,15 @@ class Scene
         return indexCount_;
     }
 
-    [[nodiscard]] uint32_t transformCount() const
-    {
-        return transformCount_;
-    }
-
   private:
     Scene() = default;
 
     Buffer vertexBuffer_;
     Buffer indexBuffer_;
-    Buffer transformsBuffer_;
     std::vector<Primitive> primitives_;
     std::vector<SceneMesh> meshes_;
     std::vector<Draw> draws_;
+    std::vector<glm::mat4> transforms_;
     uint32_t vertexCount_{0};
     uint32_t indexCount_{0};
-    uint32_t transformCount_{0};
 };

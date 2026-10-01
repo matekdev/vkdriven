@@ -5,20 +5,20 @@ struct VSInput
     float2 UV;
 };
 
-// Must match FrameData in app.h.
 struct FrameData
 {
     float4x4 view;
     float4x4 projection;
+    float4 directionToLight;
 };
 
-// Must match DrawConstants in app.h.
 struct DrawConstants
 {
+    float4x4 model;
     FrameData* frame;
-    float4x4* transforms;
-    uint32_t transformIndex;
 };
+
+[[vk::push_constant]] DrawConstants constants;
 
 struct VSOutput
 {
@@ -28,9 +28,9 @@ struct VSOutput
 };
 
 [shader("vertex")]
-VSOutput main(VSInput input, uniform DrawConstants constants)
+VSOutput main(VSInput input)
 {
-    float4x4 model = constants.transforms[constants.transformIndex];
+    float4x4 model = constants.model;
     float4x4 view = constants.frame->view;
     float4x4 projection = constants.frame->projection;
 
@@ -44,8 +44,18 @@ VSOutput main(VSInput input, uniform DrawConstants constants)
     return output;
 }
 
+static const float3 objectColor = float3(0.8, 0.8, 0.8);
+static const float3 lightColor = float3(1.0, 1.0, 1.0);
+static const float ambientStrength = 0.1;
+
 [shader("fragment")]
 float4 main(VSOutput input)
 {
-    return float4(normalize(input.Normal) * 0.5 + 0.5, 1.0);
+    float3 ambient = ambientStrength * lightColor;
+
+    float3 normal = normalize(input.Normal);
+    float3 directionToLight = constants.frame->directionToLight.xyz;
+    float3 diffuse = max(dot(normal, directionToLight), 0.0) * lightColor;
+
+    return float4((ambient + diffuse) * objectColor, 1.0);
 }

@@ -11,7 +11,8 @@ GraphicsPipeline::GraphicsPipeline(const Device& device, VkShaderModule shaderMo
                                    std::span<const VkDescriptorSetLayout> setLayouts, uint32_t pushConstantSize,
                                    VkFormat colorFormat, VkFormat depthFormat)
 {
-    VkPushConstantRange pushConstantRange{.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, .size = pushConstantSize};
+    VkPushConstantRange pushConstantRange{.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                          .size = pushConstantSize};
     VkPipelineLayoutCreateInfo layoutCI{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                                         .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
                                         .pSetLayouts = setLayouts.data(),

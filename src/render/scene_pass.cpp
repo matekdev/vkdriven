@@ -114,9 +114,9 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
     for (const Draw& draw : scene.draws())
     {
         const Primitive& primitive = scene.primitives()[draw.primitiveIndex];
-        const DrawConstants constants{
-            .frame = frameData, .transforms = scene.transformsAddress(), .transformIndex = draw.transformIndex};
-        vkCmdPushConstants(cb, pipeline_.layout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(DrawConstants), &constants);
+        const DrawConstants constants{.model = scene.transforms()[draw.transformIndex], .frame = frameData};
+        vkCmdPushConstants(cb, pipeline_.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                           sizeof(DrawConstants), &constants);
         vkCmdDrawIndexed(cb, primitive.indexCount, 1, primitive.firstIndex, primitive.vertexOffset, 0);
     }
     vkCmdEndRendering(cb);

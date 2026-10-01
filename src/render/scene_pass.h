@@ -16,19 +16,17 @@ class Scene;
 class ShaderCompiler;
 class ViewportTarget;
 
-// Written once per frame into the frame's shader data buffer. Must match FrameData in shaders/scene.slang.
 struct FrameData
 {
     glm::mat4 view;
     glm::mat4 projection;
+    glm::vec4 directionToLight;
 };
 
-// Pushed before every draw. Must match DrawConstants in shaders/scene.slang.
 struct DrawConstants
 {
+    glm::mat4 model;
     VkDeviceAddress frame;
-    VkDeviceAddress transforms;
-    uint32_t transformIndex;
 };
 
 // Draws the scene into the viewport's color and depth images, then leaves the color image ready to be sampled.
@@ -41,8 +39,7 @@ class ScenePass
     // Keeps the current pipeline if the shader fails to compile.
     void reloadShaders();
 
-    void record(VkCommandBuffer cb, const ViewportTarget& target, const Scene& scene,
-                VkDeviceAddress frameData) const;
+    void record(VkCommandBuffer cb, const ViewportTarget& target, const Scene& scene, VkDeviceAddress frameData) const;
 
   private:
     [[nodiscard]] std::expected<GraphicsPipeline, std::string> buildPipeline() const;
