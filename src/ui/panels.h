@@ -8,6 +8,7 @@
 
 class Scene;
 class ViewportTarget;
+struct DirectionalLight;
 
 struct ViewportPanelState
 {
@@ -19,3 +20,4 @@ struct ViewportPanelState
 // Shows the viewport image.
 ViewportPanelState drawViewportPanel(ImGuiID dockspace, const ViewportTarget& viewport);
 void drawStatsPanel(const Scene& scene, const ViewportTarget& viewport);
+void drawLightPanel(DirectionalLight& light);

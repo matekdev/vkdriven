@@ -59,6 +59,7 @@ add_executable(vkdriven
     src/scene/camera.h
     src/scene/gltf.cpp
     src/scene/gltf.h
+    src/scene/light.h
     src/scene/scene.cpp
     src/scene/scene.h
     src/scene/vertex.h

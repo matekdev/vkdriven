@@ -8,6 +8,7 @@
 #include "platform/window.h"
 #include "render/scene_pass.h"
 #include "scene/camera.h"
+#include "scene/light.h"
 #include "scene/scene.h"
 #include "ui/imgui_layer.h"
 #include "ui/viewport_target.h"
@@ -63,6 +64,7 @@ class App
     ViewportTarget viewport_;
 
     Camera camera_{glm::vec3{0.0f, 0.0f, 3.0f}, 0.0f, 0.0f};
+    DirectionalLight light_;
     glm::vec2 mouseDelta_{};
     bool viewportHovered_{false};
 

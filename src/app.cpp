@@ -98,6 +98,7 @@ void App::drawUi()
         requestedViewportExtent_ = *viewportPanel.requestedExtent;
     viewportHovered_ = viewportPanel.hovered;
     drawStatsPanel(scene_, viewport_);
+    drawLightPanel(light_);
 }
 
 void App::drawFrame()
@@ -154,10 +155,9 @@ void App::updateFrameData(Frame& frame) const
     const VkExtent2D extent = viewport_.extent();
     const float aspect{static_cast<float>(extent.width) / static_cast<float>(extent.height)};
 
-    const glm::vec3 directionToLight{glm::normalize(glm::vec3{1.0f, 1.0f, 0.5f})};
     const FrameData frameData{.view = camera_.view(),
                               .projection = camera_.projection(aspect),
-                              .directionToLight = glm::vec4{directionToLight, 0.0f}};
+                              .directionToLight = glm::vec4{light_.directionToLight(), 0.0f}};
     frame.shaderData.write(std::span{&frameData, 1});
 }
 
