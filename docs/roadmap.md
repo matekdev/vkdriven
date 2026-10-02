@@ -84,7 +84,7 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 - [x] Add **fastgltf** and move from OBJ (tinyobjloader) to glTF 2.0 loading
 - [x] Textures: glTF PNG/JPEG decoded with stb_image, full mip chains generated on the GPU
 - [x] **One big vertex buffer + one big index buffer** for the whole scene (sets up GPU-driven rendering)
-- [ ] Flattened GPU scene data in SSBOs: transforms, materials, and a per-draw array `{meshIndex, materialIndex, transformIndex}`
+- [x] Flattened GPU scene data in SSBOs: transforms, materials, and a per-draw array `{meshIndex, materialIndex, transformIndex}`
 - [x] Test scene: Sponza
 
 ### P3: Physically based lighting (~35h, 7 weeks). *Milestone: Sponza with PBR + cascaded shadows*

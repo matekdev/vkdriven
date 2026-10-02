@@ -154,8 +154,11 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
                                         const SceneMesh& mesh = meshes[node.meshIndex.value()];
                                         for (uint32_t i = 0; i < mesh.primitiveCount; i++)
                                         {
-                                            scene.draws_.push_back({.primitiveIndex = mesh.firstPrimitive + i,
-                                                                    .transformIndex = transformIndex});
+                                            const uint32_t primitiveIndex = mesh.firstPrimitive + i;
+                                            scene.draws_.push_back(
+                                                {.primitiveIndex = primitiveIndex,
+                                                 .materialIndex = primitives[primitiveIndex].materialIndex,
+                                                 .transformIndex = transformIndex});
                                         }
                                     });
     }
@@ -167,6 +170,10 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
     scene.indexBuffer_ = uploadDeviceLocalBuffer(allocator, commandPool, indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     scene.materialBuffer_ =
         uploadDeviceLocalBuffer(allocator, commandPool, materials, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+    scene.drawBuffer_ =
+        uploadDeviceLocalBuffer(allocator, commandPool, scene.draws_, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+    scene.transformBuffer_ =
+        uploadDeviceLocalBuffer(allocator, commandPool, transforms, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
     scene.vertexCount_ = static_cast<uint32_t>(vertices.size());
     scene.indexCount_ = static_cast<uint32_t>(indices.size());
     return scene;
