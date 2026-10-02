@@ -36,7 +36,8 @@ struct Material
 {
     glm::vec4 baseColorFactor{1.0f};
     uint32_t baseColorTextureIndex{0};
-    std::array<uint32_t, 3> padding{};
+    float alphaCutoff{0.0f};
+    std::array<uint32_t, 2> padding{};
 };
 static_assert(sizeof(Material) == 32);
 

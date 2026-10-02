@@ -65,7 +65,7 @@ class App
     ImGuiLayer imgui_;
     ViewportTarget viewport_;
 
-    Camera camera_{glm::vec3{0.0f, 0.0f, 3.0f}, 0.0f, 0.0f};
+    Camera camera_{glm::vec3{-8.0f, 2.0f, 0.0f}, glm::radians(90.0f), 0.0f};
     DirectionalLight light_;
     glm::vec2 mouseDelta_{};
     bool viewportHovered_{false};

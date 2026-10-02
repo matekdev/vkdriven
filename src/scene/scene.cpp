@@ -64,8 +64,10 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
     std::vector<std::optional<uint32_t>> loadedTextureIndices(asset->textures.size());
     for (const fastgltf::Material& material : asset->materials)
     {
-        Material& sceneMaterial =
-            materials.emplace_back(Material{.baseColorFactor = glm::make_vec4(material.pbrData.baseColorFactor.data())});
+        Material& sceneMaterial = materials.emplace_back(Material{
+            .baseColorFactor = glm::make_vec4(material.pbrData.baseColorFactor.data()),
+            .alphaCutoff = material.alphaMode == fastgltf::AlphaMode::Mask ? material.alphaCutoff : 0.0f,
+        });
         if (!material.pbrData.baseColorTexture.has_value())
             continue;
 

@@ -82,13 +82,12 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 
 ### P2: Assets & scene (~20h, 4 weeks)
 - [x] Add **fastgltf** and move from OBJ (tinyobjloader) to glTF 2.0 loading
-- [ ] Textures: glTF PNG/JPEG decoded with stb_image, full mip chains generated on the GPU
+- [x] Textures: glTF PNG/JPEG decoded with stb_image, full mip chains generated on the GPU
 - [x] **One big vertex buffer + one big index buffer** for the whole scene (sets up GPU-driven rendering)
 - [ ] Flattened GPU scene data in SSBOs: transforms, materials, and a per-draw array `{meshIndex, materialIndex, transformIndex}`
-- [ ] Vertex quantization/compression with meshoptimizer (optional)
-- [ ] Test scenes: Sponza, Intel Sponza, Amazon Lumberyard Bistro
+- [x] Test scene: Sponza
 
-### P3: Physically based lighting (~35h, 7 weeks). *Milestone: Bistro with PBR + cascaded shadows*
+### P3: Physically based lighting (~35h, 7 weeks). *Milestone: Sponza with PBR + cascaded shadows*
 - [ ] Compute pipelines (needed for the IBL precomputation below), and a `VkPipelineCache` saved to disk
 - [ ] HDR render target (`R16G16B16A16_SFLOAT`) and a separate tonemap pass (ACES or AgX), with exposure control
 - [ ] Correct color handling: sRGB textures vs. linear data textures, sRGB swapchain
@@ -163,7 +162,7 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 |---|---|---|
 | 0–0.5 | P0 Setup | CI green, SDL window, validation layers |
 | 0.5–2.5 | P1 Vulkan core | How to Vulkan finished, then textured Sponza, blog post |
-| 2.5–3.5 | P2 Assets | Bistro loads, bindless materials |
+| 2.5–3.5 | P2 Assets | Sponza loads, bindless materials |
 | 3.5–5 | P3 PBR + CSM | Blog post, screenshots |
 | 5–8 | P4 GPU-driven | Blog post |
 | 5–9 | P5 Profiling | 2–3 case study posts |
