@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <expected>
 #include <filesystem>
-#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -24,7 +23,13 @@ struct Primitive
     uint32_t firstIndex{0};
     uint32_t indexCount{0};
     int32_t vertexOffset{0};
-    std::optional<uint32_t> materialIndex;
+    uint32_t materialIndex{0};
+};
+
+// Primitives without a glTF material point at a default material appended after the file's own.
+struct Material
+{
+    glm::vec4 baseColorFactor{1.0f};
 };
 
 // A glTF mesh: a contiguous run of primitives. Nodes refer to meshes by index.
@@ -67,6 +72,11 @@ class Scene
         return primitives_;
     }
 
+    [[nodiscard]] std::span<const Material> materials() const
+    {
+        return materials_;
+    }
+
     [[nodiscard]] std::span<const SceneMesh> meshes() const
     {
         return meshes_;
@@ -98,6 +108,7 @@ class Scene
     Buffer vertexBuffer_;
     Buffer indexBuffer_;
     std::vector<Primitive> primitives_;
+    std::vector<Material> materials_;
     std::vector<SceneMesh> meshes_;
     std::vector<Draw> draws_;
     std::vector<glm::mat4> transforms_;
