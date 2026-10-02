@@ -15,6 +15,7 @@ struct FrameData
 struct DrawConstants
 {
     float4x4 model;
+    float4 baseColorFactor;
     FrameData* frame;
 };
 
@@ -44,7 +45,6 @@ VSOutput main(VSInput input)
     return output;
 }
 
-static const float3 objectColor = float3(0.8, 0.8, 0.8);
 static const float3 lightColor = float3(1.0, 1.0, 1.0);
 static const float ambientStrength = 0.1;
 
@@ -57,5 +57,6 @@ float4 main(VSOutput input)
     float3 directionToLight = constants.frame->directionToLight.xyz;
     float3 diffuse = max(dot(normal, directionToLight), 0.0) * lightColor;
 
-    return float4((ambient + diffuse) * objectColor, 1.0);
+    float3 baseColor = constants.baseColorFactor.rgb;
+    return float4((ambient + diffuse) * baseColor, 1.0);
 }

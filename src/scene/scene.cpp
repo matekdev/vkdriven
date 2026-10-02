@@ -24,6 +24,12 @@ std::expected<Scene, std::string> Scene::loadGltf(const Allocator& allocator, co
     std::vector<uint32_t> indices;
     std::vector<Primitive>& primitives = scene.primitives_;
     std::vector<SceneMesh>& meshes = scene.meshes_;
+    std::vector<Material>& materials = scene.materials_;
+
+    for (const fastgltf::Material& material : asset->materials)
+        materials.push_back({.baseColorFactor = glm::make_vec4(material.pbrData.baseColorFactor.data())});
+    const auto defaultMaterialIndex = static_cast<uint32_t>(materials.size());
+    materials.push_back({});
 
     for (const fastgltf::Mesh& mesh : asset->meshes)
     {
@@ -68,8 +74,8 @@ std::expected<Scene, std::string> Scene::loadGltf(const Allocator& allocator, co
                 .indexCount = static_cast<uint32_t>(indexAccessor.count),
                 .vertexOffset = static_cast<int32_t>(firstVertex),
                 .materialIndex = primitive.materialIndex.has_value()
-                                     ? std::optional{static_cast<uint32_t>(primitive.materialIndex.value())}
-                                     : std::nullopt,
+                                     ? static_cast<uint32_t>(primitive.materialIndex.value())
+                                     : defaultMaterialIndex,
             });
             meshes.back().primitiveCount++;
         }

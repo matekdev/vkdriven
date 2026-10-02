@@ -26,6 +26,7 @@ struct FrameData
 struct DrawConstants
 {
     glm::mat4 model;
+    glm::vec4 baseColorFactor;
     VkDeviceAddress frame;
 };
 
