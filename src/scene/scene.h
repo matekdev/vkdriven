@@ -7,6 +7,7 @@
 #include "vk/buffer.h"
 #include "vk/texture.h"
 
+#include <array>
 #include <cstdint>
 #include <expected>
 #include <filesystem>
@@ -30,11 +31,14 @@ struct Primitive
 
 // Primitives without a glTF material point at a default material appended after the file's own.
 // Texture indices point into the scene's textures; index 0 is a 1x1 white texture for materials without one.
+// Uploaded to the GPU as-is, so it must match Material in shaders/scene.slang.
 struct Material
 {
     glm::vec4 baseColorFactor{1.0f};
-    uint32_t baseColorTexture{0};
+    uint32_t baseColorTextureIndex{0};
+    std::array<uint32_t, 3> padding{};
 };
+static_assert(sizeof(Material) == 32);
 
 // A glTF mesh: a contiguous run of primitives. Nodes refer to meshes by index.
 struct SceneMesh
@@ -82,6 +86,11 @@ class Scene
         return materials_;
     }
 
+    [[nodiscard]] VkDeviceAddress materialBufferAddress() const
+    {
+        return materialBuffer_.deviceAddress();
+    }
+
     [[nodiscard]] std::span<const Texture> textures() const
     {
         return textures_;
@@ -117,6 +126,7 @@ class Scene
 
     Buffer vertexBuffer_;
     Buffer indexBuffer_;
+    Buffer materialBuffer_;
     std::vector<Primitive> primitives_;
     std::vector<Material> materials_;
     std::vector<Texture> textures_;

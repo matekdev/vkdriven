@@ -12,12 +12,21 @@ struct FrameData
     float4 directionToLight;
 };
 
+struct Material
+{
+    float4 baseColorFactor;
+    uint baseColorTextureIndex;
+    uint padding0;
+    uint padding1;
+    uint padding2;
+};
+
 struct DrawConstants
 {
     float4x4 model;
-    float4 baseColorFactor;
     FrameData* frame;
-    uint baseColorTexture;
+    Material* materials;
+    uint materialIndex;
 };
 
 [[vk::push_constant]] DrawConstants constants;
@@ -60,7 +69,8 @@ float4 main(VSOutput input)
     float3 directionToLight = constants.frame->directionToLight.xyz;
     float3 diffuse = max(dot(normal, directionToLight), 0.0) * lightColor;
 
-    float4 texel = textures[constants.baseColorTexture].Sample(input.UV);
-    float3 baseColor = constants.baseColorFactor.rgb * texel.rgb;
+    Material material = constants.materials[constants.materialIndex];
+    float4 texel = textures[material.baseColorTextureIndex].Sample(input.UV);
+    float3 baseColor = material.baseColorFactor.rgb * texel.rgb;
     return float4((ambient + diffuse) * baseColor, 1.0);
 }

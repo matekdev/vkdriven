@@ -79,7 +79,7 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
             loadedTextureIndices[gltfTextureIndex] = static_cast<uint32_t>(textures.size());
             textures.push_back(std::move(*texture));
         }
-        sceneMaterial.baseColorTexture = loadedTextureIndices[gltfTextureIndex].value();
+        sceneMaterial.baseColorTextureIndex = loadedTextureIndices[gltfTextureIndex].value();
     }
     const auto defaultMaterialIndex = static_cast<uint32_t>(materials.size());
     materials.push_back({});
@@ -163,6 +163,8 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
 
     scene.vertexBuffer_ = uploadDeviceLocalBuffer(allocator, commandPool, vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     scene.indexBuffer_ = uploadDeviceLocalBuffer(allocator, commandPool, indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    scene.materialBuffer_ =
+        uploadDeviceLocalBuffer(allocator, commandPool, materials, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
     scene.vertexCount_ = static_cast<uint32_t>(vertices.size());
     scene.indexCount_ = static_cast<uint32_t>(indices.size());
     return scene;
