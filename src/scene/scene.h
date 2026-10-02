@@ -48,13 +48,16 @@ struct SceneMesh
     uint32_t primitiveCount{0};
 };
 
-// One thing to draw: which primitive, and which world transform (index into the scene's transforms).
+// One thing to draw: which primitive, its material, and which world transform (index into the scene's transforms).
 // A mesh placed by several nodes produces one Draw per node per primitive.
+// Uploaded to the GPU as-is, so it must match Draw in shaders/scene.slang.
 struct Draw
 {
     uint32_t primitiveIndex{0};
+    uint32_t materialIndex{0};
     uint32_t transformIndex{0};
 };
+static_assert(sizeof(Draw) == 12);
 
 // All geometry of a glTF file in one device-local vertex buffer and one 32-bit index buffer, plus the
 // node hierarchy flattened into a draw list and a list of world matrices.
@@ -107,9 +110,19 @@ class Scene
         return draws_;
     }
 
+    [[nodiscard]] VkDeviceAddress drawBufferAddress() const
+    {
+        return drawBuffer_.deviceAddress();
+    }
+
     [[nodiscard]] std::span<const glm::mat4> transforms() const
     {
         return transforms_;
+    }
+
+    [[nodiscard]] VkDeviceAddress transformBufferAddress() const
+    {
+        return transformBuffer_.deviceAddress();
     }
 
     [[nodiscard]] uint32_t vertexCount() const
@@ -128,6 +141,8 @@ class Scene
     Buffer vertexBuffer_;
     Buffer indexBuffer_;
     Buffer materialBuffer_;
+    Buffer drawBuffer_;
+    Buffer transformBuffer_;
     std::vector<Primitive> primitives_;
     std::vector<Material> materials_;
     std::vector<Texture> textures_;

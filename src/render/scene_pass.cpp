@@ -9,6 +9,7 @@
 #include "vk/sync.h"
 
 #include <array>
+#include <cstddef>
 #include <print>
 #include <span>
 #include <utility>
@@ -116,16 +117,19 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
     vkCmdBindVertexBuffers(cb, 0, 1, &vertexBuffer, &vertexOffset);
     vkCmdBindIndexBuffer(cb, scene.indexBuffer(), 0, Scene::indexType);
 
-    for (const Draw& draw : scene.draws())
+    constexpr VkShaderStageFlags pushStages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    const DrawConstants constants{.frame = frameData,
+                                  .draws = scene.drawBufferAddress(),
+                                  .transforms = scene.transformBufferAddress(),
+                                  .materials = scene.materialBufferAddress()};
+    vkCmdPushConstants(cb, pipeline_.layout(), pushStages, 0, sizeof(DrawConstants), &constants);
+
+    const std::span<const Draw> draws = scene.draws();
+    for (uint32_t drawIndex = 0; drawIndex < draws.size(); drawIndex++)
     {
-        const Primitive& primitive = scene.primitives()[draw.primitiveIndex];
-        const glm::mat4& model = scene.transforms()[draw.transformIndex];
-        const DrawConstants constants{.model = model,
-                                      .frame = frameData,
-                                      .materials = scene.materialBufferAddress(),
-                                      .materialIndex = primitive.materialIndex};
-        vkCmdPushConstants(cb, pipeline_.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                           sizeof(DrawConstants), &constants);
+        const Primitive& primitive = scene.primitives()[draws[drawIndex].primitiveIndex];
+        vkCmdPushConstants(cb, pipeline_.layout(), pushStages, offsetof(DrawConstants, drawIndex), sizeof(drawIndex),
+                           &drawIndex);
         vkCmdDrawIndexed(cb, primitive.indexCount, 1, primitive.firstIndex, primitive.vertexOffset, 0);
     }
     vkCmdEndRendering(cb);

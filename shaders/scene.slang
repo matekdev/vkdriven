@@ -21,12 +21,20 @@ struct Material
     uint padding1;
 };
 
+struct Draw
+{
+    uint primitiveIndex;
+    uint materialIndex;
+    uint transformIndex;
+};
+
 struct DrawConstants
 {
-    float4x4 model;
     FrameData* frame;
+    Draw* draws;
+    float4x4* transforms;
     Material* materials;
-    uint materialIndex;
+    uint drawIndex;
 };
 
 [[vk::push_constant]] DrawConstants constants;
@@ -43,7 +51,8 @@ struct VSOutput
 [shader("vertex")]
 VSOutput main(VSInput input)
 {
-    float4x4 model = constants.model;
+    Draw draw = constants.draws[constants.drawIndex];
+    float4x4 model = constants.transforms[draw.transformIndex];
     float4x4 view = constants.frame->view;
     float4x4 projection = constants.frame->projection;
 
@@ -69,7 +78,8 @@ float4 main(VSOutput input)
     float3 directionToLight = constants.frame->directionToLight.xyz;
     float3 diffuse = max(dot(normal, directionToLight), 0.0) * lightColor;
 
-    Material material = constants.materials[constants.materialIndex];
+    Draw draw = constants.draws[constants.drawIndex];
+    Material material = constants.materials[draw.materialIndex];
     float4 baseColor = material.baseColorFactor * textures[material.baseColorTextureIndex].Sample(input.UV);
     if (baseColor.a < material.alphaCutoff)
         discard;
