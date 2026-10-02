@@ -23,14 +23,19 @@ App::App()
       surface_{instance_, window_}, device_{instance_, surface_}, allocator_{instance_, device_},
       swapchain_{device_, surface_, window_}, commandPool_{device_},
       frames_{device_, allocator_, commandPool_, sizeof(FrameData)},
-      scene_{orThrow(Scene::loadGltf(allocator_, commandPool_, scenePath))}, shaderDirectory_{VKDRIVEN_SHADER_DIR},
-      scenePass_{device_, shaderCompiler_, shaderDirectory_ / "scene.slang"}, shaderWatcher_{shaderDirectory_},
+      scene_{orThrow(Scene::loadGltf(device_, allocator_, commandPool_, scenePath))},
+      bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size())},
+      shaderDirectory_{VKDRIVEN_SHADER_DIR},
+      scenePass_{device_, shaderCompiler_, bindlessTextures_, shaderDirectory_ / "scene.slang"},
+      shaderWatcher_{shaderDirectory_},
       imgui_{window_, instance_, device_, FrameResources::maxFramesInFlight, swapchain_.format()},
       viewport_{allocator_, device_.depthFormat(), swapchain_.extent()}
 {
-    std::println("Loaded {}: {} meshes, {} primitives, {} vertices, {} indices, {} draws, {} transforms", scenePath,
-                 scene_.meshes().size(), scene_.primitives().size(), scene_.vertexCount(), scene_.indexCount(),
-                 scene_.draws().size(), scene_.transforms().size());
+    bindlessTextures_.write(scene_.textures());
+
+    std::println("Loaded {}: {} meshes, {} primitives, {} vertices, {} indices, {} draws, {} transforms, {} textures",
+                 scenePath, scene_.meshes().size(), scene_.primitives().size(), scene_.vertexCount(),
+                 scene_.indexCount(), scene_.draws().size(), scene_.transforms().size(), scene_.textures().size());
 }
 
 App::~App()

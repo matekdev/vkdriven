@@ -17,9 +17,12 @@ struct DrawConstants
     float4x4 model;
     float4 baseColorFactor;
     FrameData* frame;
+    uint baseColorTexture;
 };
 
 [[vk::push_constant]] DrawConstants constants;
+
+[[vk::binding(0, 0)]] Sampler2D textures[];
 
 struct VSOutput
 {
@@ -57,6 +60,7 @@ float4 main(VSOutput input)
     float3 directionToLight = constants.frame->directionToLight.xyz;
     float3 diffuse = max(dot(normal, directionToLight), 0.0) * lightColor;
 
-    float3 baseColor = constants.baseColorFactor.rgb;
+    float4 texel = textures[constants.baseColorTexture].Sample(input.UV);
+    float3 baseColor = constants.baseColorFactor.rgb * texel.rgb;
     return float4((ambient + diffuse) * baseColor, 1.0);
 }

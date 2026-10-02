@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 
 #include "vk/buffer.h"
+#include "vk/texture.h"
 
 #include <cstdint>
 #include <expected>
@@ -15,6 +16,7 @@
 
 class Allocator;
 class CommandPool;
+class Device;
 
 // One draw's worth of geometry: a range in the scene's shared index buffer, plus the offset added
 // to every index so it points at this primitive's vertices in the shared vertex buffer.
@@ -27,9 +29,11 @@ struct Primitive
 };
 
 // Primitives without a glTF material point at a default material appended after the file's own.
+// Texture indices point into the scene's textures; index 0 is a 1x1 white texture for materials without one.
 struct Material
 {
     glm::vec4 baseColorFactor{1.0f};
+    uint32_t baseColorTexture{0};
 };
 
 // A glTF mesh: a contiguous run of primitives. Nodes refer to meshes by index.
@@ -54,7 +58,8 @@ class Scene
   public:
     static constexpr VkIndexType indexType = VK_INDEX_TYPE_UINT32;
 
-    static std::expected<Scene, std::string> loadGltf(const Allocator& allocator, const CommandPool& commandPool,
+    static std::expected<Scene, std::string> loadGltf(const Device& device, const Allocator& allocator,
+                                                      const CommandPool& commandPool,
                                                       const std::filesystem::path& path);
 
     [[nodiscard]] VkBuffer vertexBuffer() const
@@ -75,6 +80,11 @@ class Scene
     [[nodiscard]] std::span<const Material> materials() const
     {
         return materials_;
+    }
+
+    [[nodiscard]] std::span<const Texture> textures() const
+    {
+        return textures_;
     }
 
     [[nodiscard]] std::span<const SceneMesh> meshes() const
@@ -109,6 +119,7 @@ class Scene
     Buffer indexBuffer_;
     std::vector<Primitive> primitives_;
     std::vector<Material> materials_;
+    std::vector<Texture> textures_;
     std::vector<SceneMesh> meshes_;
     std::vector<Draw> draws_;
     std::vector<glm::mat4> transforms_;

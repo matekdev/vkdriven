@@ -9,11 +9,38 @@
 #include "scene/vertex.h"
 #include "vk/upload.h"
 
+#include <array>
 #include <cstddef>
 #include <format>
+#include <optional>
+#include <utility>
+#include <variant>
 
-std::expected<Scene, std::string> Scene::loadGltf(const Allocator& allocator, const CommandPool& commandPool,
-                                                  const std::filesystem::path& path)
+namespace
+{
+
+std::expected<Texture, std::string> loadGltfTexture(const Device& device, const Allocator& allocator,
+                                                    const CommandPool& commandPool, const fastgltf::Asset& asset,
+                                                    const std::filesystem::path& directory, size_t textureIndex,
+                                                    VkFormat format)
+{
+    const fastgltf::Texture& texture = asset.textures[textureIndex];
+    if (!texture.imageIndex.has_value())
+        return std::unexpected{std::format("Texture {} has no PNG/JPEG image", textureIndex)};
+
+    const fastgltf::Image& image = asset.images[texture.imageIndex.value()];
+    const auto* source = std::get_if<fastgltf::sources::URI>(&image.data);
+    if (source == nullptr || !source->uri.isLocalPath())
+        return std::unexpected{std::format("Image '{}' isn't an external file; embedded images aren't supported yet",
+                                           std::string_view{image.name})};
+
+    return Texture::loadImage(device, allocator, commandPool, directory / source->uri.fspath(), format);
+}
+
+} // namespace
+
+std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Allocator& allocator,
+                                                  const CommandPool& commandPool, const std::filesystem::path& path)
 {
     const auto asset = parseGltf(path);
     if (!asset)
@@ -26,8 +53,34 @@ std::expected<Scene, std::string> Scene::loadGltf(const Allocator& allocator, co
     std::vector<SceneMesh>& meshes = scene.meshes_;
     std::vector<Material>& materials = scene.materials_;
 
+    std::vector<Texture>& textures = scene.textures_;
+
+    constexpr std::array<std::byte, 4> whitePixel{std::byte{0xff}, std::byte{0xff}, std::byte{0xff}, std::byte{0xff}};
+    auto whiteTexture = Texture::fromPixels(device, allocator, commandPool, 1, 1, whitePixel, VK_FORMAT_R8G8B8A8_SRGB);
+    if (!whiteTexture)
+        return std::unexpected{whiteTexture.error()};
+    textures.push_back(std::move(*whiteTexture));
+
+    std::vector<std::optional<uint32_t>> loadedTextureIndices(asset->textures.size());
     for (const fastgltf::Material& material : asset->materials)
-        materials.push_back({.baseColorFactor = glm::make_vec4(material.pbrData.baseColorFactor.data())});
+    {
+        Material& sceneMaterial =
+            materials.emplace_back(Material{.baseColorFactor = glm::make_vec4(material.pbrData.baseColorFactor.data())});
+        if (!material.pbrData.baseColorTexture.has_value())
+            continue;
+
+        const size_t gltfTextureIndex = material.pbrData.baseColorTexture->textureIndex;
+        if (!loadedTextureIndices[gltfTextureIndex].has_value())
+        {
+            auto texture = loadGltfTexture(device, allocator, commandPool, *asset, path.parent_path(),
+                                           gltfTextureIndex, VK_FORMAT_R8G8B8A8_SRGB);
+            if (!texture)
+                return std::unexpected{texture.error()};
+            loadedTextureIndices[gltfTextureIndex] = static_cast<uint32_t>(textures.size());
+            textures.push_back(std::move(*texture));
+        }
+        sceneMaterial.baseColorTexture = loadedTextureIndices[gltfTextureIndex].value();
+    }
     const auto defaultMaterialIndex = static_cast<uint32_t>(materials.size());
     materials.push_back({});
 
