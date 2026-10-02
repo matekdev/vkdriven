@@ -27,9 +27,9 @@ struct FrameData
 struct DrawConstants
 {
     glm::mat4 model;
-    glm::vec4 baseColorFactor;
     VkDeviceAddress frame;
-    uint32_t baseColorTexture;
+    VkDeviceAddress materials;
+    uint32_t materialIndex;
 };
 
 // Draws the scene into the viewport's color and depth images, then leaves the color image ready to be sampled.
