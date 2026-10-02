@@ -14,7 +14,7 @@
 namespace
 {
 
-constexpr const char* scenePath = "assets/Suzanne/Suzanne.gltf";
+constexpr const char* scenePath = "assets/Sponza/Sponza.gltf";
 
 } // namespace
 

@@ -16,9 +16,9 @@ struct Material
 {
     float4 baseColorFactor;
     uint baseColorTextureIndex;
+    float alphaCutoff;
     uint padding0;
     uint padding1;
-    uint padding2;
 };
 
 struct DrawConstants
@@ -70,7 +70,8 @@ float4 main(VSOutput input)
     float3 diffuse = max(dot(normal, directionToLight), 0.0) * lightColor;
 
     Material material = constants.materials[constants.materialIndex];
-    float4 texel = textures[material.baseColorTextureIndex].Sample(input.UV);
-    float3 baseColor = material.baseColorFactor.rgb * texel.rgb;
-    return float4((ambient + diffuse) * baseColor, 1.0);
+    float4 baseColor = material.baseColorFactor * textures[material.baseColorTextureIndex].Sample(input.UV);
+    if (baseColor.a < material.alphaCutoff)
+        discard;
+    return float4((ambient + diffuse) * baseColor.rgb, 1.0);
 }
