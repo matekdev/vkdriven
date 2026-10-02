@@ -13,6 +13,7 @@
 #include "ui/imgui_layer.h"
 #include "ui/viewport_target.h"
 #include "vk/allocator.h"
+#include "vk/bindless_textures.h"
 #include "vk/command_pool.h"
 #include "vk/device.h"
 #include "vk/frame_resources.h"
@@ -56,6 +57,7 @@ class App
     CommandPool commandPool_;
     FrameResources frames_;
     Scene scene_;
+    BindlessTextures bindlessTextures_;
     ShaderCompiler shaderCompiler_;
     std::filesystem::path shaderDirectory_;
     ScenePass scenePass_;

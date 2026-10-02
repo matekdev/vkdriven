@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <string>
 
+class BindlessTextures;
 class Device;
 class Scene;
 class ShaderCompiler;
@@ -28,6 +29,7 @@ struct DrawConstants
     glm::mat4 model;
     glm::vec4 baseColorFactor;
     VkDeviceAddress frame;
+    uint32_t baseColorTexture;
 };
 
 // Draws the scene into the viewport's color and depth images, then leaves the color image ready to be sampled.
@@ -35,7 +37,8 @@ struct DrawConstants
 class ScenePass
 {
   public:
-    ScenePass(const Device& device, const ShaderCompiler& shaderCompiler, std::filesystem::path shaderPath);
+    ScenePass(const Device& device, const ShaderCompiler& shaderCompiler, const BindlessTextures& textures,
+              std::filesystem::path shaderPath);
 
     // Keeps the current pipeline if the shader fails to compile.
     void reloadShaders();
@@ -47,6 +50,7 @@ class ScenePass
 
     const Device& device_;
     const ShaderCompiler& shaderCompiler_;
+    const BindlessTextures& textures_;
     std::filesystem::path shaderPath_;
     GraphicsPipeline pipeline_;
 };

@@ -3,6 +3,7 @@
 #include "scene/scene.h"
 #include "ui/viewport_target.h"
 #include "util/expected.h"
+#include "vk/bindless_textures.h"
 #include "vk/device.h"
 #include "vk/shader_compiler.h"
 #include "vk/sync.h"
@@ -12,8 +13,9 @@
 #include <span>
 #include <utility>
 
-ScenePass::ScenePass(const Device& device, const ShaderCompiler& shaderCompiler, std::filesystem::path shaderPath)
-    : device_{device}, shaderCompiler_{shaderCompiler}, shaderPath_{std::move(shaderPath)},
+ScenePass::ScenePass(const Device& device, const ShaderCompiler& shaderCompiler, const BindlessTextures& textures,
+                     std::filesystem::path shaderPath)
+    : device_{device}, shaderCompiler_{shaderCompiler}, textures_{textures}, shaderPath_{std::move(shaderPath)},
       pipeline_{orThrow(buildPipeline())}
 {
 }
@@ -37,9 +39,10 @@ std::expected<GraphicsPipeline, std::string> ScenePass::buildPipeline() const
         .transform(
             [&](const DeviceHandle<VkShaderModule>& shaderModule)
             {
+                const VkDescriptorSetLayout textureLayout = textures_.layout();
                 return GraphicsPipeline{device_,
                                         shaderModule.get(),
-                                        std::span<const VkDescriptorSetLayout>{},
+                                        std::span{&textureLayout, 1},
                                         sizeof(DrawConstants),
                                         ViewportTarget::colorFormat,
                                         device_.depthFormat()};
@@ -106,6 +109,8 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
     vkCmdSetScissor(cb, 0, 1, &scissor);
 
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.handle());
+    const VkDescriptorSet textureSet = textures_.set();
+    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.layout(), 0, 1, &textureSet, 0, nullptr);
     const VkDeviceSize vertexOffset{0};
     const VkBuffer vertexBuffer = scene.vertexBuffer();
     vkCmdBindVertexBuffers(cb, 0, 1, &vertexBuffer, &vertexOffset);
@@ -118,7 +123,8 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
         const glm::mat4& model = scene.transforms()[draw.transformIndex];
         const DrawConstants constants{.model = model,
                                       .baseColorFactor = material.baseColorFactor,
-                                      .frame = frameData};
+                                      .frame = frameData,
+                                      .baseColorTexture = material.baseColorTexture};
         vkCmdPushConstants(cb, pipeline_.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(DrawConstants), &constants);
         vkCmdDrawIndexed(cb, primitive.indexCount, 1, primitive.firstIndex, primitive.vertexOffset, 0);
