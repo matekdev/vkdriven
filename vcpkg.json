@@ -12,10 +12,6 @@
     },
     "vulkan-memory-allocator",
     "glm",
-    {
-      "name": "ktx",
-      "features": [ "vulkan" ]
-    },
     "shader-slang",
     "fastgltf",
     "stb",

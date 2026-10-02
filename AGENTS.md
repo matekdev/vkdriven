@@ -61,7 +61,7 @@ Presets: `debug` and `release` (RelWithDebInfo). vcpkg installs all dependencies
 
 ## Dependencies
 
-All from vcpkg (`vcpkg.json`, pinned in `vcpkg-configuration.json`). Vulkan headers, volk, SDL3, VulkanMemoryAllocator, glm, KTX-Software (`ktx`), Slang (`shader-slang`), fastgltf (glTF loading), stb (`stb_image` for PNG/JPEG) and ImGui (docking). Later phases add meshoptimizer (P4).
+All from vcpkg (`vcpkg.json`, pinned in `vcpkg-configuration.json`). Vulkan headers, volk, SDL3, VulkanMemoryAllocator, glm, Slang (`shader-slang`), fastgltf (glTF loading), stb (`stb_image` for PNG/JPEG) and ImGui (docking). Later phases add meshoptimizer (P4).
 
 - **volk loads all Vulkan functions.** Link `Vulkan::Headers`, never `Vulkan::Vulkan` (the loader), or the loader's exported symbols clash with volk's function pointers.
 - **ImGui with volk:** vcpkg's prebuilt ImGui Vulkan backend links the loader. When ImGui is added, compile `imgui_impl_vulkan.cpp` into the project with `IMGUI_IMPL_VULKAN_USE_VOLK` instead of using the `vulkan-binding` feature.

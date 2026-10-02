@@ -16,7 +16,6 @@ find_package(volk CONFIG REQUIRED)
 find_package(SDL3 CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
-find_package(Ktx CONFIG REQUIRED)
 find_package(slang CONFIG REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
 find_package(Stb REQUIRED)
@@ -114,7 +113,6 @@ target_link_libraries(vkdriven PRIVATE
     SDL3::SDL3
     GPUOpen::VulkanMemoryAllocator
     glm::glm
-    KTX::ktx
     slang::slang
     fastgltf::fastgltf
     imgui::imgui
