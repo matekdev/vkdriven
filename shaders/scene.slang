@@ -28,11 +28,17 @@ struct Draw
     uint transformIndex;
 };
 
+struct Transform
+{
+    float4x4 model;
+    float4x4 normal;
+};
+
 struct DrawConstants
 {
     FrameData* frame;
     Draw* draws;
-    float4x4* transforms;
+    Transform* transforms;
     Material* materials;
     uint drawIndex;
 };
@@ -52,16 +58,16 @@ struct VSOutput
 VSOutput main(VSInput input)
 {
     Draw draw = constants.draws[constants.drawIndex];
-    float4x4 model = constants.transforms[draw.transformIndex];
+    Transform transform = constants.transforms[draw.transformIndex];
     float4x4 view = constants.frame->view;
     float4x4 projection = constants.frame->projection;
 
     // Column vectors, so read right to left: model -> world -> view -> clip.
-    float4x4 mvp = mul(projection, mul(view, model));
+    float4x4 mvp = mul(projection, mul(view, transform.model));
 
     VSOutput output;
     output.Pos = mul(mvp, float4(input.Pos, 1.0));
-    output.Normal = mul((float3x3)model, input.Normal);
+    output.Normal = mul((float3x3)transform.normal, input.Normal);
     output.UV = input.UV;
     return output;
 }

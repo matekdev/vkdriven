@@ -37,6 +37,27 @@ std::expected<Texture, std::string> loadGltfTexture(const Device& device, const 
     return Texture::loadImage(device, allocator, commandPool, directory / source->uri.fspath(), format);
 }
 
+// Each vertex gets the sum of its triangles' unnormalized face normals, so bigger triangles weigh more.
+void generateSmoothNormals(std::span<Vertex> vertices, std::span<const uint32_t> indices)
+{
+    for (size_t i = 0; i + 2 < indices.size(); i += 3)
+    {
+        Vertex& a = vertices[indices[i]];
+        Vertex& b = vertices[indices[i + 1]];
+        Vertex& c = vertices[indices[i + 2]];
+        const glm::vec3 faceNormal = glm::cross(b.pos - a.pos, c.pos - a.pos);
+        a.normal += faceNormal;
+        b.normal += faceNormal;
+        c.normal += faceNormal;
+    }
+
+    for (Vertex& vertex : vertices)
+    {
+        const float length = glm::length(vertex.normal);
+        vertex.normal = length > 0.0f ? vertex.normal / length : glm::vec3{0.0f, 1.0f, 0.0f};
+    }
+}
+
 } // namespace
 
 std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Allocator& allocator,
@@ -105,7 +126,9 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
             fastgltf::iterateAccessorWithIndex<glm::vec3>(*asset, positionAccessor, [&](glm::vec3 value, size_t index)
                                                           { vertices[firstVertex + index].pos = value; });
 
-            if (const auto normal = primitive.findAttribute("NORMAL"); normal != primitive.attributes.end())
+            const auto normal = primitive.findAttribute("NORMAL");
+            const bool hasNormals = normal != primitive.attributes.end();
+            if (hasNormals)
             {
                 fastgltf::iterateAccessorWithIndex<glm::vec3>(*asset, asset->accessors[normal->accessorIndex],
                                                               [&](glm::vec3 value, size_t index)
@@ -124,6 +147,10 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
             indices.resize(firstIndex + indexAccessor.count);
             fastgltf::copyFromAccessor<uint32_t>(*asset, indexAccessor, indices.data() + firstIndex);
 
+            if (!hasNormals)
+                generateSmoothNormals(std::span{vertices}.subspan(firstVertex),
+                                      std::span{indices}.subspan(firstIndex));
+
             primitives.push_back({
                 .firstIndex = static_cast<uint32_t>(firstIndex),
                 .indexCount = static_cast<uint32_t>(indexAccessor.count),
@@ -139,7 +166,7 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
     if (vertices.empty())
         return std::unexpected{std::format("{} contains no triangle geometry", path.string())};
 
-    std::vector<glm::mat4>& transforms = scene.transforms_;
+    std::vector<Transform>& transforms = scene.transforms_;
     if (!asset->scenes.empty())
     {
         fastgltf::iterateSceneNodes(*asset, asset->defaultScene.value_or(0), fastgltf::math::fmat4x4{},
@@ -149,7 +176,9 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
                                             return;
 
                                         const auto transformIndex = static_cast<uint32_t>(transforms.size());
-                                        transforms.push_back(glm::make_mat4(world.data()));
+                                        const glm::mat4 model = glm::make_mat4(world.data());
+                                        transforms.push_back(
+                                            {.model = model, .normal = glm::transpose(glm::inverse(model))});
 
                                         const SceneMesh& mesh = meshes[node.meshIndex.value()];
                                         for (uint32_t i = 0; i < mesh.primitiveCount; i++)

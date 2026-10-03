@@ -17,7 +17,6 @@ FrameResources::FrameResources(const Device& device, const Allocator& allocator,
         frame.imageAcquired = createSemaphore(device.handle());
         frame.shaderData =
             Buffer{allocator, shaderDataSize, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                       VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT};
+                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT};
     }
 }
