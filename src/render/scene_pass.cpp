@@ -78,7 +78,7 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
              .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
              .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
              .image = target.depth().handle(),
-             .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)},
+             .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)},
         }));
 
     VkRenderingAttachmentInfo colorAttachmentInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,

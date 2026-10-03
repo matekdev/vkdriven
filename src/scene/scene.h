@@ -59,6 +59,15 @@ struct Draw
 };
 static_assert(sizeof(Draw) == 12);
 
+// A node's world matrix, plus its inverse-transpose for normals (only the upper 3x3 is used).
+// Uploaded to the GPU as-is, so it must match Transform in shaders/scene.slang.
+struct Transform
+{
+    glm::mat4 model{1.0f};
+    glm::mat4 normal{1.0f};
+};
+static_assert(sizeof(Transform) == 128);
+
 // All geometry of a glTF file in one device-local vertex buffer and one 32-bit index buffer, plus the
 // node hierarchy flattened into a draw list and a list of world matrices.
 class Scene
@@ -115,7 +124,7 @@ class Scene
         return drawBuffer_.deviceAddress();
     }
 
-    [[nodiscard]] std::span<const glm::mat4> transforms() const
+    [[nodiscard]] std::span<const Transform> transforms() const
     {
         return transforms_;
     }
@@ -148,7 +157,7 @@ class Scene
     std::vector<Texture> textures_;
     std::vector<SceneMesh> meshes_;
     std::vector<Draw> draws_;
-    std::vector<glm::mat4> transforms_;
+    std::vector<Transform> transforms_;
     uint32_t vertexCount_{0};
     uint32_t indexCount_{0};
 };
