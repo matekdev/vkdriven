@@ -88,14 +88,21 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 - [x] Test scene: Sponza
 
 ### P3: Physically based lighting (~35h, 7 weeks). *Milestone: Sponza with PBR + cascaded shadows*
-- [ ] Compute pipelines (needed for the IBL precomputation below), and a `VkPipelineCache` saved to disk
-- [ ] HDR render target (`R16G16B16A16_SFLOAT`) and a separate tonemap pass (ACES or AgX), with exposure control
-- [ ] Correct color handling: sRGB textures vs. linear data textures, sRGB swapchain
-- [ ] Cook-Torrance BRDF: GGX NDF, Smith geometry term, Schlick Fresnel, metal/roughness workflow
-- [ ] Normal mapping (tangents from glTF, or MikkTSpace)
-- [ ] Image-based lighting: equirect→cubemap, **compute-shader** irradiance and specular prefiltering, BRDF LUT
-- [ ] **Cascaded shadow maps**: cascade splits, texel snapping to stop shimmering, PCF, depth bias and normal offset
-- [ ] Point/spot lights with a simple light buffer
+
+Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* chapters by Joey de Vries, in the order below. Each item names the chapter it comes from. The tutorial is OpenGL, so translate as you go: framebuffers become dynamic rendering attachments, uniforms become the `FrameData`/material buffers reached through BDA, texture binds become bindless indices, and every pass boundary needs a barrier you can explain. Keep reverse-Z and Slang.
+
+- [ ] Before starting: tag P2 and take a "before" screenshot of the Lambert Sponza for the blog post
+- [ ] Correct color handling: sRGB textures vs. linear data textures (metallic-roughness and normal maps load as `UNORM`), sRGB output (*Gamma Correction*)
+- [ ] HDR render target (`R16G16B16A16_SFLOAT`) and a separate fullscreen tonemap pass with exposure control in ImGui (*HDR*). The chapter uses Reinhard/exposure; add ACES or AgX afterwards.
+- [ ] Read the theory: microfacets, energy conservation, the reflectance equation, metal/roughness workflow (*PBR → Theory*)
+- [ ] Cook-Torrance BRDF: GGX NDF, Smith geometry term, Schlick Fresnel. Material gains metallic/roughness factors and the glTF metallic-roughness texture (blue = metallic, green = roughness); `FrameData` gains camera position and light color × intensity (*PBR → Lighting*)
+- [ ] Point lights with a simple light buffer, the four lights from *PBR → Lighting* first, then spot lights
+- [ ] Normal mapping with the glTF `TANGENT` attribute (Sponza ships it) and a flat-normal default texture (*Normal Mapping*)
+- [ ] Compute pipelines and a `VkPipelineCache` saved to disk (needed for IBL below; not in the tutorial)
+- [ ] Image-based lighting: equirect→cubemap and diffuse irradiance convolution (*PBR → IBL → Diffuse irradiance*). The tutorial renders each cubemap face with a framebuffer; do it in a **compute shader** writing to a cube storage image instead.
+- [ ] Specular prefiltered environment map (per-mip roughness) and BRDF LUT, also in compute (*PBR → IBL → Specular IBL*)
+- [ ] Shadow mapping basics: single directional shadow map, depth bias, PCF (*Shadows → Shadow Mapping*). Remember reverse-Z flips the comparison.
+- [ ] **Cascaded shadow maps**: cascade splits, a layered depth image, cascade selection (*Guest Articles → Cascaded Shadow Mapping*). Beyond the tutorial: texel snapping to stop shimmering, and normal-offset bias.
 - [ ] 📝 Blog: "PBR from Blinn-Phong: what changed and why", with before/after images
 
 ### P4: GPU-driven rendering (~50h, 10 weeks). ★ The main feature
@@ -178,6 +185,7 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 
 **Vulkan**
 - **[How to Vulkan](https://www.howtovulkan.com/)** by Sascha Willems: the primary reference for P1. Modern Vulkan 1.3 in one file, same libraries as this project ([source](https://github.com/SaschaWillems/HowToVulkan)).
+- **[LearnOpenGL](https://learnopengl.com/)** by Joey de Vries: the primary reference for P3 (Gamma Correction, HDR, Normal Mapping, Shadow Mapping, the PBR chapters, and the Cascaded Shadow Mapping guest article). OpenGL, but the lighting and the math carry over directly.
 - vkguide.dev: a second take on Vulkan 1.3 (dynamic rendering, BDA), useful for engine structure after P1
 - Khronos Vulkan-Samples, and Sascha Willems' Vulkan examples
 - **niagara** by Arseny Kapoulkine (zeux): GitHub repo plus YouTube streams. Very close to P4.
