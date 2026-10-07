@@ -10,6 +10,7 @@ struct FrameData
     float4x4 view;
     float4x4 projection;
     float4 directionToLight;
+    float4 cameraPosition;
 };
 
 struct Material

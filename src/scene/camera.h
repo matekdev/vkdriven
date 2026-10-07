@@ -17,6 +17,7 @@ class Camera
 
     [[nodiscard]] glm::mat4 view() const;
     [[nodiscard]] glm::mat4 projection(float aspect) const;
+    [[nodiscard]] glm::vec3 worldPosition() const;
 
   private:
     [[nodiscard]] bool updateLooking(const Window& window, bool viewportHovered);
