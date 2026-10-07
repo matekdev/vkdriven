@@ -98,6 +98,11 @@ glm::mat4 Camera::projection(float aspect) const
     return projection;
 }
 
+glm::vec3 Camera::worldPosition() const
+{
+    return position_;
+}
+
 glm::vec3 Camera::forward() const
 {
     return {std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_), -std::cos(pitch_) * std::cos(yaw_)};

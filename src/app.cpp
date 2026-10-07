@@ -162,7 +162,9 @@ void App::updateFrameData(Frame& frame) const
 
     const FrameData frameData{.view = camera_.view(),
                               .projection = camera_.projection(aspect),
-                              .directionToLight = glm::vec4{light_.directionToLight(), 0.0f}};
+                              .directionToLight = glm::vec4{light_.directionToLight(), 0.0f},
+                              .cameraPosition = glm::vec4{camera_.worldPosition(), 0.0f},
+                              .lightRadiance = glm::vec4{light_.radiance(), 0.0f}};
     frame.shaderData.write(std::span{&frameData, 1});
 }
 
