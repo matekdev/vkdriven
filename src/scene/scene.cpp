@@ -77,32 +77,59 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
     std::vector<Texture>& textures = scene.textures_;
 
     constexpr std::array<std::byte, 4> whitePixel{std::byte{0xff}, std::byte{0xff}, std::byte{0xff}, std::byte{0xff}};
-    auto whiteTexture = Texture::fromPixels(device, allocator, commandPool, 1, 1, whitePixel, VK_FORMAT_R8G8B8A8_SRGB);
-    if (!whiteTexture)
-        return std::unexpected{whiteTexture.error()};
-    textures.push_back(std::move(*whiteTexture));
+    for (const VkFormat format : {VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_R8G8B8A8_UNORM})
+    {
+        auto whiteTexture = Texture::fromPixels(device, allocator, commandPool, 1, 1, whitePixel, format);
+        if (!whiteTexture)
+            return std::unexpected{whiteTexture.error()};
+        textures.push_back(std::move(*whiteTexture));
+    }
 
-    std::vector<std::optional<uint32_t>> loadedTextureIndices(asset->textures.size());
+    // Cached per format, so an image used both as color and as data would be loaded once for each.
+    std::vector<std::optional<uint32_t>> loadedSrgbTextureIndices(asset->textures.size());
+    std::vector<std::optional<uint32_t>> loadedLinearTextureIndices(asset->textures.size());
+    auto loadTexture = [&](size_t gltfTextureIndex, VkFormat format) -> std::expected<uint32_t, std::string> {
+        std::optional<uint32_t>& loadedIndex = format == VK_FORMAT_R8G8B8A8_SRGB
+                                                   ? loadedSrgbTextureIndices[gltfTextureIndex]
+                                                   : loadedLinearTextureIndices[gltfTextureIndex];
+        if (loadedIndex.has_value())
+            return loadedIndex.value();
+
+        auto texture =
+            loadGltfTexture(device, allocator, commandPool, *asset, path.parent_path(), gltfTextureIndex, format);
+        if (!texture)
+            return std::unexpected{texture.error()};
+        loadedIndex = static_cast<uint32_t>(textures.size());
+        textures.push_back(std::move(*texture));
+        return loadedIndex.value();
+    };
+
     for (const fastgltf::Material& material : asset->materials)
     {
         Material& sceneMaterial = materials.emplace_back(Material{
             .baseColorFactor = glm::make_vec4(material.pbrData.baseColorFactor.data()),
+            .metallicFactor = material.pbrData.metallicFactor,
+            .roughnessFactor = material.pbrData.roughnessFactor,
             .alphaCutoff = material.alphaMode == fastgltf::AlphaMode::Mask ? material.alphaCutoff : 0.0f,
         });
-        if (!material.pbrData.baseColorTexture.has_value())
-            continue;
 
-        const size_t gltfTextureIndex = material.pbrData.baseColorTexture->textureIndex;
-        if (!loadedTextureIndices[gltfTextureIndex].has_value())
+        if (material.pbrData.baseColorTexture.has_value())
         {
-            auto texture = loadGltfTexture(device, allocator, commandPool, *asset, path.parent_path(),
-                                           gltfTextureIndex, VK_FORMAT_R8G8B8A8_SRGB);
-            if (!texture)
-                return std::unexpected{texture.error()};
-            loadedTextureIndices[gltfTextureIndex] = static_cast<uint32_t>(textures.size());
-            textures.push_back(std::move(*texture));
+            const auto textureIndex =
+                loadTexture(material.pbrData.baseColorTexture->textureIndex, VK_FORMAT_R8G8B8A8_SRGB);
+            if (!textureIndex)
+                return std::unexpected{textureIndex.error()};
+            sceneMaterial.baseColorTextureIndex = *textureIndex;
         }
-        sceneMaterial.baseColorTextureIndex = loadedTextureIndices[gltfTextureIndex].value();
+
+        if (material.pbrData.metallicRoughnessTexture.has_value())
+        {
+            const auto textureIndex =
+                loadTexture(material.pbrData.metallicRoughnessTexture->textureIndex, VK_FORMAT_R8G8B8A8_UNORM);
+            if (!textureIndex)
+                return std::unexpected{textureIndex.error()};
+            sceneMaterial.metallicRoughnessTextureIndex = *textureIndex;
+        }
     }
     const auto defaultMaterialIndex = static_cast<uint32_t>(materials.size());
     materials.push_back({});
