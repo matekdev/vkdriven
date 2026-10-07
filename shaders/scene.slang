@@ -16,9 +16,13 @@ struct Material
 {
     float4 baseColorFactor;
     uint baseColorTextureIndex;
+    uint metallicRoughnessTextureIndex;
+    float metallicFactor;
+    float roughnessFactor;
     float alphaCutoff;
     uint padding0;
     uint padding1;
+    uint padding2;
 };
 
 struct Draw

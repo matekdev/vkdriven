@@ -29,17 +29,24 @@ struct Primitive
     uint32_t materialIndex{0};
 };
 
+constexpr uint32_t whiteSrgbTextureIndex = 0;
+constexpr uint32_t whiteLinearTextureIndex = 1;
+
 // Primitives without a glTF material point at a default material appended after the file's own.
-// Texture indices point into the scene's textures; index 0 is a 1x1 white texture for materials without one.
+// Texture indices point into the scene's textures; materials without a texture use a 1x1 white one, so the
+// factors pass through unchanged. Color textures are sRGB, data textures (metallic-roughness) are linear.
 // Uploaded to the GPU as-is, so it must match Material in shaders/scene.slang.
 struct Material
 {
     glm::vec4 baseColorFactor{1.0f};
-    uint32_t baseColorTextureIndex{0};
+    uint32_t baseColorTextureIndex{whiteSrgbTextureIndex};
+    uint32_t metallicRoughnessTextureIndex{whiteLinearTextureIndex};
+    float metallicFactor{1.0f};
+    float roughnessFactor{1.0f};
     float alphaCutoff{0.0f};
-    std::array<uint32_t, 2> padding{};
+    std::array<uint32_t, 3> padding{};
 };
-static_assert(sizeof(Material) == 32);
+static_assert(sizeof(Material) == 48);
 
 // A glTF mesh: a contiguous run of primitives. Nodes refer to meshes by index.
 struct SceneMesh
