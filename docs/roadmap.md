@@ -96,7 +96,6 @@ Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* c
 - [ ] HDR render target (`R16G16B16A16_SFLOAT`) and a separate fullscreen tonemap pass with exposure control in ImGui (*HDR*). The chapter uses Reinhard/exposure; add ACES or AgX afterwards.
 - [x] Read the theory: microfacets, energy conservation, the reflectance equation, metal/roughness workflow (*PBR → Theory*)
 - [x] Cook-Torrance BRDF: GGX NDF, Smith geometry term, Schlick Fresnel. Material gains metallic/roughness factors and the glTF metallic-roughness texture (blue = metallic, green = roughness); `FrameData` gains camera position and light color × intensity (*PBR → Lighting*)
-- [ ] Point lights with a simple light buffer, the four lights from *PBR → Lighting* first, then spot lights
 - [ ] Normal mapping with the glTF `TANGENT` attribute (Sponza ships it) and a flat-normal default texture (*Normal Mapping*)
 - [ ] Compute pipelines and a `VkPipelineCache` saved to disk (needed for IBL below; not in the tutorial)
 - [ ] Image-based lighting: equirect→cubemap and diffuse irradiance convolution (*PBR → IBL → Diffuse irradiance*). The tutorial renders each cubemap face with a framebuffer; do it in a **compute shader** writing to a cube storage image instead.
@@ -146,7 +145,6 @@ Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* c
 - [ ] Lightweight **render graph**: passes declare what they read and write, and barriers and transient resources are handled automatically
 - [ ] Dedicated compute + transfer queues, staging uploads with queue-family ownership transfer
 - [ ] **Async compute**: run culling or SSAO on the compute queue overlapped with graphics, with timeline semaphores. Measure the overlap.
-- [ ] **Clustered forward lighting**: compute light-cluster assignment, supporting 1000+ lights
 
 ### Stretch: CAD flavor (pick 1–2)
 - [ ] **Camera-relative rendering** for large coordinates (double precision on the CPU, float relative to the camera on the GPU). Show the jitter being fixed.
