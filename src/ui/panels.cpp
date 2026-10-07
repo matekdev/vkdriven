@@ -50,5 +50,7 @@ void drawLightPanel(DirectionalLight& light)
     ImGui::Begin(ICON_FA_SUN " Light###Light");
     ImGui::SliderAngle("Azimuth", &light.azimuthRadians, -180.0f, 180.0f);
     ImGui::SliderAngle("Elevation", &light.elevationRadians, -90.0f, 90.0f);
+    ImGui::ColorEdit3("Color", &light.color.x);
+    ImGui::SliderFloat("Intensity", &light.intensity, 0.0f, 10.0f);
     ImGui::End();
 }
