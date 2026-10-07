@@ -56,6 +56,7 @@ struct DrawConstants
 struct VSOutput
 {
     float4 Pos : SV_POSITION;
+    float3 WorldPos;
     float3 Normal;
     float2 UV;
 };
@@ -73,6 +74,7 @@ VSOutput main(VSInput input)
 
     VSOutput output;
     output.Pos = mul(mvp, float4(input.Pos, 1.0));
+    output.WorldPos = mul(transform.model, float4(input.Pos, 1.0)).xyz;
     output.Normal = mul((float3x3)transform.normal, input.Normal);
     output.UV = input.UV;
     return output;
