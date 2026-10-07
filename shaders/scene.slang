@@ -11,6 +11,7 @@ struct FrameData
     float4x4 projection;
     float4 directionToLight;
     float4 cameraPosition;
+    float4 lightRadiance;
 };
 
 struct Material
@@ -77,17 +78,17 @@ VSOutput main(VSInput input)
     return output;
 }
 
-static const float3 lightColor = float3(1.0, 1.0, 1.0);
 static const float ambientStrength = 0.1;
 
 [shader("fragment")]
 float4 main(VSOutput input)
 {
-    float3 ambient = ambientStrength * lightColor;
+    float3 ambient = float3(ambientStrength);
 
     float3 normal = normalize(input.Normal);
     float3 directionToLight = constants.frame->directionToLight.xyz;
-    float3 diffuse = max(dot(normal, directionToLight), 0.0) * lightColor;
+    float3 lightRadiance = constants.frame->lightRadiance.rgb;
+    float3 diffuse = max(dot(normal, directionToLight), 0.0) * lightRadiance;
 
     Draw draw = constants.draws[constants.drawIndex];
     Material material = constants.materials[draw.materialIndex];
