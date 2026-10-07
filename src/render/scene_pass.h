@@ -23,7 +23,9 @@ struct FrameData
     glm::mat4 projection;
     glm::vec4 directionToLight;
     glm::vec4 cameraPosition;
+    glm::vec4 lightRadiance;
 };
+static_assert(sizeof(FrameData) == 176);
 
 struct DrawConstants
 {
