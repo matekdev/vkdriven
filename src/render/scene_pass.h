@@ -22,6 +22,7 @@ struct FrameData
     glm::mat4 view;
     glm::mat4 projection;
     glm::vec4 directionToLight;
+    glm::vec4 cameraPosition;
 };
 
 struct DrawConstants
