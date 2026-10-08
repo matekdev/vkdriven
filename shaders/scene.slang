@@ -5,6 +5,7 @@ struct VSInput
     float3 Pos;
     float3 Normal;
     float2 UV;
+    float4 Tangent;
 };
 
 struct FrameData
@@ -24,9 +25,9 @@ struct Material
     float metallicFactor;
     float roughnessFactor;
     float alphaCutoff;
-    uint padding0;
-    uint padding1;
-    uint padding2;
+    uint normalTextureIndex;
+    float normalScale;
+    uint padding;
 };
 
 struct Draw
@@ -61,6 +62,7 @@ struct VSOutput
     float3 WorldPos;
     float3 Normal;
     float2 UV;
+    float4 Tangent;
 };
 
 [shader("vertex")]
@@ -79,11 +81,31 @@ VSOutput main(VSInput input)
     output.WorldPos = mul(transform.model, float4(input.Pos, 1.0)).xyz;
     output.Normal = mul((float3x3)transform.normal, input.Normal);
     output.UV = input.UV;
+    // Tangents lie along the surface, so they transform with the model matrix, not the normal matrix.
+    output.Tangent = float4(mul((float3x3)transform.model, input.Tangent.xyz), input.Tangent.w);
     return output;
 }
 
 static const float ambientStrength = 0.03;
 static const float minRoughness = 0.04;
+
+// Moves the normal map's tangent-space normal into world space with the TBN basis.
+// A tangent w of 0 means the mesh has no tangents, so the vertex normal is used as-is.
+float3 ApplyNormalMap(float3 N, float4 tangent, Material material, float2 uv)
+{
+    if (tangent.w == 0.0)
+        return N;
+
+    // Interpolation can tilt T off the surface, so re-orthogonalize it against N (Gram-Schmidt).
+    float3 T = normalize(tangent.xyz - dot(tangent.xyz, N) * N);
+    float3 B = cross(N, T) * tangent.w;
+
+    float3 tangentNormal = textures[material.normalTextureIndex].Sample(uv).xyz * 2.0 - 1.0;
+    tangentNormal.xy *= material.normalScale;
+
+    // Rows T, B, N: mul(v, TBN) = v.x * T + v.y * B + v.z * N.
+    return normalize(mul(tangentNormal, float3x3(T, B, N)));
+}
 
 float DistributionGGX(float3 N, float3 H, float roughness)
 {
@@ -148,7 +170,7 @@ float4 main(VSOutput input)
     float metallic = material.metallicFactor * metallicRoughness.b;
     float roughness = max(material.roughnessFactor * metallicRoughness.g, minRoughness);
 
-    float3 N = normalize(input.Normal);
+    float3 N = ApplyNormalMap(normalize(input.Normal), input.Tangent, material, input.UV);
     float3 L = normalize(constants.frame->directionToLight.xyz);
     float3 V = normalize(constants.frame->cameraPosition.xyz - input.WorldPos);
     float3 H = normalize(L + V);
