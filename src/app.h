@@ -7,6 +7,7 @@
 #include "platform/file_watcher.h"
 #include "platform/window.h"
 #include "render/scene_pass.h"
+#include "render/shadow_pass.h"
 #include "render/tonemap_pass.h"
 #include "scene/camera.h"
 #include "scene/light.h"
@@ -54,6 +55,11 @@ class App
         return static_cast<uint32_t>(scene_.textures().size());
     }
 
+    [[nodiscard]] uint32_t shadowMapTextureIndex() const
+    {
+        return hdrTextureIndex() + 1;
+    }
+
     Window window_;
     Instance instance_;
     Surface surface_;
@@ -66,6 +72,7 @@ class App
     BindlessTextures bindlessTextures_;
     ShaderCompiler shaderCompiler_;
     std::filesystem::path shaderDirectory_;
+    ShadowPass shadowPass_;
     ScenePass scenePass_;
     TonemapPass tonemapPass_;
     FileWatcher shaderWatcher_;

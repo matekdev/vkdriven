@@ -26,6 +26,7 @@ struct GraphicsPipelineInfo
 // The mesh pipeline: Vertex input, one color + one depth attachment (dynamic rendering, reverse-Z),
 // dynamic viewport/scissor, and one push constant block visible to the vertex stage.
 // VertexInput::None with a VK_FORMAT_UNDEFINED depth format gives a fullscreen pass pipeline instead.
+// A VK_FORMAT_UNDEFINED color format gives a depth-only pipeline.
 class GraphicsPipeline
 {
   public:

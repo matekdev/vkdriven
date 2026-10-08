@@ -24,8 +24,9 @@ App::App()
       swapchain_{device_, surface_, window_}, commandPool_{device_},
       frames_{device_, allocator_, commandPool_, sizeof(FrameData)},
       scene_{orThrow(Scene::loadGltf(device_, allocator_, commandPool_, scenePath))},
-      bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size()) + 1},
+      bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size()) + 2},
       shaderDirectory_{VKDRIVEN_SHADER_DIR},
+      shadowPass_{device_, allocator_, shaderCompiler_, bindlessTextures_, shaderDirectory_ / "shadow.slang"},
       scenePass_{device_, shaderCompiler_, bindlessTextures_, shaderDirectory_ / "scene.slang"},
       tonemapPass_{device_, shaderCompiler_, bindlessTextures_, shaderDirectory_ / "tonemap.slang"},
       shaderWatcher_{shaderDirectory_},
@@ -36,6 +37,9 @@ App::App()
 
     const VkDescriptorImageInfo hdrInfo = viewport_.hdrDescriptorInfo();
     bindlessTextures_.write(std::span{&hdrInfo, 1}, hdrTextureIndex());
+
+    const VkDescriptorImageInfo shadowMapInfo = shadowPass_.descriptorInfo();
+    bindlessTextures_.write(std::span{&shadowMapInfo, 1}, shadowMapTextureIndex());
 
     std::println("Loaded {}: {} meshes, {} primitives, {} vertices, {} indices, {} draws, {} transforms, {} textures",
                  scenePath, scene_.meshes().size(), scene_.primitives().size(), scene_.vertexCount(),
@@ -57,6 +61,7 @@ void App::run()
         if (shaderWatcher_.poll() || reloadRequested_)
         {
             reloadRequested_ = false;
+            shadowPass_.reloadShaders();
             scenePass_.reloadShaders();
             tonemapPass_.reloadShaders();
         }
@@ -173,7 +178,9 @@ void App::updateFrameData(Frame& frame) const
                               .projection = camera_.projection(aspect),
                               .directionToLight = glm::vec4{light_.directionToLight(), 0.0f},
                               .cameraPosition = glm::vec4{camera_.worldPosition(), 0.0f},
-                              .lightRadiance = glm::vec4{light_.radiance(), 0.0f}};
+                              .lightRadiance = glm::vec4{light_.radiance(), 0.0f},
+                              .lightViewProjection = light_.viewProjection(),
+                              .shadowMapTextureIndex = shadowMapTextureIndex()};
     frame.shaderData.write(std::span{&frameData, 1});
 }
 
@@ -184,6 +191,7 @@ void App::recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, const Fra
                                   .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
     chk(vkBeginCommandBuffer(cb, &cbBI));
 
+    shadowPass_.record(cb, scene_, frame.shaderData.deviceAddress());
     scenePass_.record(cb, viewport_, scene_, frame.shaderData.deviceAddress());
     tonemapPass_.record(cb, viewport_, hdrTextureIndex(), tonemapSettings_);
     imgui_.record(cb, swapchain_, imageIndex);

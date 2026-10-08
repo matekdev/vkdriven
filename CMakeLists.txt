@@ -52,8 +52,12 @@ add_executable(vkdriven
     src/platform/file_watcher.h
     src/platform/window.cpp
     src/platform/window.h
+    src/render/scene_draws.cpp
+    src/render/scene_draws.h
     src/render/scene_pass.cpp
     src/render/scene_pass.h
+    src/render/shadow_pass.cpp
+    src/render/shadow_pass.h
     src/render/tonemap_pass.cpp
     src/render/tonemap_pass.h
     src/scene/camera.cpp

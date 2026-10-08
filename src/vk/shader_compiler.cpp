@@ -31,9 +31,13 @@ std::expected<DeviceHandle<VkShaderModule>, std::string> ShaderCompiler::compile
         std::to_array<slang::TargetDesc>({{.format{SLANG_SPIRV}, .profile{globalSession_->findProfile("spirv_1_4")}}})};
     auto options{std::to_array<slang::CompilerOptionEntry>(
         {{slang::CompilerOptionName::EmitSpirvDirectly, {slang::CompilerOptionValueKind::Int, 1}}})};
+    const std::string shaderDirectory = path.parent_path().string();
+    const char* searchPath = shaderDirectory.c_str();
     slang::SessionDesc sessionDesc{.targets{targets.data()},
                                    .targetCount{SlangInt(targets.size())},
                                    .defaultMatrixLayoutMode = SLANG_MATRIX_LAYOUT_COLUMN_MAJOR,
+                                   .searchPaths = &searchPath,
+                                   .searchPathCount = 1,
                                    .compilerOptionEntries{options.data()},
                                    .compilerOptionEntryCount{uint32_t(options.size())}};
 
