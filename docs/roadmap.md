@@ -91,12 +91,12 @@ Work through [How to Vulkan](https://www.howtovulkan.com/) in order. Each item n
 
 Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* chapters by Joey de Vries, in the order below. Each item names the chapter it comes from. The tutorial is OpenGL, so translate as you go: framebuffers become dynamic rendering attachments, uniforms become the `FrameData`/material buffers reached through BDA, texture binds become bindless indices, and every pass boundary needs a barrier you can explain. Keep reverse-Z and Slang.
 
-- [ ] Before starting: tag P2 and take a "before" screenshot of the Lambert Sponza for the blog post
+- [x] Before starting: tag P2 and take a "before" screenshot of the Lambert Sponza for the blog post
 - [x] Correct color handling: sRGB textures vs. linear data textures (metallic-roughness and normal maps load as `UNORM`), sRGB output (*Gamma Correction*)
 - [x] HDR render target (`R16G16B16A16_SFLOAT`) and a separate fullscreen tonemap pass with exposure control in ImGui (*HDR*). The chapter uses Reinhard/exposure; add ACES or AgX afterwards.
 - [x] Read the theory: microfacets, energy conservation, the reflectance equation, metal/roughness workflow (*PBR → Theory*)
 - [x] Cook-Torrance BRDF: GGX NDF, Smith geometry term, Schlick Fresnel. Material gains metallic/roughness factors and the glTF metallic-roughness texture (blue = metallic, green = roughness); `FrameData` gains camera position and light color × intensity (*PBR → Lighting*)
-- [ ] Normal mapping with the glTF `TANGENT` attribute (Sponza ships it) and a flat-normal default texture (*Normal Mapping*)
+- [x] Normal mapping with the glTF `TANGENT` attribute (Sponza ships it) and a flat-normal default texture (*Normal Mapping*)
 - [ ] Compute pipelines and a `VkPipelineCache` saved to disk (needed for IBL below; not in the tutorial)
 - [ ] Image-based lighting: equirect→cubemap and diffuse irradiance convolution (*PBR → IBL → Diffuse irradiance*). The tutorial renders each cubemap face with a framebuffer; do it in a **compute shader** writing to a cube storage image instead.
 - [ ] Specular prefiltered environment map (per-mip roughness) and BRDF LUT, also in compute (*PBR → IBL → Specular IBL*)
