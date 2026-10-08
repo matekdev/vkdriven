@@ -21,3 +21,4 @@ struct ViewportPanelState
 ViewportPanelState drawViewportPanel(ImGuiID dockspace, const ViewportTarget& viewport);
 void drawStatsPanel(const Scene& scene, const ViewportTarget& viewport);
 void drawLightPanel(DirectionalLight& light);
+void drawTonemapPanel(float& exposure);

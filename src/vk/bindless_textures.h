@@ -18,6 +18,7 @@ class BindlessTextures
     BindlessTextures(const Device& device, uint32_t capacity);
 
     void write(std::span<const Texture> textures, uint32_t firstIndex = 0) const;
+    void write(std::span<const VkDescriptorImageInfo> imageInfos, uint32_t firstIndex = 0) const;
 
     [[nodiscard]] VkDescriptorSetLayout layout() const
     {

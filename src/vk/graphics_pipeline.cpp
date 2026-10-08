@@ -7,15 +7,13 @@
 #include <array>
 #include <cstdint>
 
-GraphicsPipeline::GraphicsPipeline(const Device& device, VkShaderModule shaderModule,
-                                   std::span<const VkDescriptorSetLayout> setLayouts, uint32_t pushConstantSize,
-                                   VkFormat colorFormat, VkFormat depthFormat)
+GraphicsPipeline::GraphicsPipeline(const Device& device, VkShaderModule shaderModule, const GraphicsPipelineInfo& info)
 {
     VkPushConstantRange pushConstantRange{.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                                          .size = pushConstantSize};
+                                          .size = info.pushConstantSize};
     VkPipelineLayoutCreateInfo layoutCI{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-                                        .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
-                                        .pSetLayouts = setLayouts.data(),
+                                        .setLayoutCount = 1,
+                                        .pSetLayouts = &info.setLayout,
                                         .pushConstantRangeCount = 1,
                                         .pPushConstantRanges = &pushConstantRange};
     VkPipelineLayout layout{VK_NULL_HANDLE};
@@ -36,11 +34,14 @@ GraphicsPipeline::GraphicsPipeline(const Device& device, VkShaderModule shaderMo
     constexpr VkVertexInputBindingDescription vertexBinding = Vertex::bindingDescription();
     constexpr auto vertexAttributes = Vertex::attributeDescriptions();
     VkPipelineVertexInputStateCreateInfo vertexInputState{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &vertexBinding,
-        .vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexAttributes.size()),
-        .pVertexAttributeDescriptions = vertexAttributes.data()};
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+    if (info.vertexInput == VertexInput::Mesh)
+    {
+        vertexInputState.vertexBindingDescriptionCount = 1;
+        vertexInputState.pVertexBindingDescriptions = &vertexBinding;
+        vertexInputState.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexAttributes.size());
+        vertexInputState.pVertexAttributeDescriptions = vertexAttributes.data();
+    }
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyState{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
@@ -59,8 +60,8 @@ GraphicsPipeline::GraphicsPipeline(const Device& device, VkShaderModule shaderMo
                                                           .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT};
     VkPipelineDepthStencilStateCreateInfo depthStencilState{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        .depthTestEnable = VK_TRUE,
-        .depthWriteEnable = VK_TRUE,
+        .depthTestEnable = info.depthFormat != VK_FORMAT_UNDEFINED,
+        .depthWriteEnable = info.depthFormat != VK_FORMAT_UNDEFINED,
         .depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL};
     VkPipelineColorBlendAttachmentState blendAttachment{.colorWriteMask =
                                                             VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
@@ -72,8 +73,8 @@ GraphicsPipeline::GraphicsPipeline(const Device& device, VkShaderModule shaderMo
 
     VkPipelineRenderingCreateInfo renderingCI{.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                                               .colorAttachmentCount = 1,
-                                              .pColorAttachmentFormats = &colorFormat,
-                                              .depthAttachmentFormat = depthFormat};
+                                              .pColorAttachmentFormats = &info.colorFormat,
+                                              .depthAttachmentFormat = info.depthFormat};
     VkGraphicsPipelineCreateInfo pipelineCI{.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                                             .pNext = &renderingCI,
                                             .stageCount = static_cast<uint32_t>(shaderStages.size()),

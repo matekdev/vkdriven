@@ -2,52 +2,26 @@
 
 #include "scene/scene.h"
 #include "ui/viewport_target.h"
-#include "util/expected.h"
 #include "vk/bindless_textures.h"
+#include "vk/commands.h"
 #include "vk/device.h"
-#include "vk/shader_compiler.h"
 #include "vk/sync.h"
 
 #include <array>
 #include <cstddef>
-#include <print>
 #include <span>
 #include <utility>
 
 ScenePass::ScenePass(const Device& device, const ShaderCompiler& shaderCompiler, const BindlessTextures& textures,
                      std::filesystem::path shaderPath)
-    : device_{device}, shaderCompiler_{shaderCompiler}, textures_{textures}, shaderPath_{std::move(shaderPath)},
-      pipeline_{orThrow(buildPipeline())}
+    : textures_{textures}, pipeline_{device,
+                                     shaderCompiler,
+                                     std::move(shaderPath),
+                                     {.setLayout = textures.layout(),
+                                      .pushConstantSize = sizeof(DrawConstants),
+                                      .colorFormat = ViewportTarget::hdrFormat,
+                                      .depthFormat = device.depthFormat()}}
 {
-}
-
-void ScenePass::reloadShaders()
-{
-    auto reloadedPipeline = buildPipeline();
-    if (!reloadedPipeline)
-    {
-        std::println(stderr, "{}", reloadedPipeline.error());
-        return;
-    }
-    device_.waitIdle();
-    pipeline_ = std::move(*reloadedPipeline);
-    std::println("Reloaded {}", shaderPath_.string());
-}
-
-std::expected<GraphicsPipeline, std::string> ScenePass::buildPipeline() const
-{
-    return shaderCompiler_.compile(device_, shaderPath_)
-        .transform(
-            [&](const DeviceHandle<VkShaderModule>& shaderModule)
-            {
-                const VkDescriptorSetLayout textureLayout = textures_.layout();
-                return GraphicsPipeline{device_,
-                                        shaderModule.get(),
-                                        std::span{&textureLayout, 1},
-                                        sizeof(DrawConstants),
-                                        ViewportTarget::colorFormat,
-                                        device_.depthFormat()};
-            });
 }
 
 void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const Scene& scene,
@@ -67,7 +41,7 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
              .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
              .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
              .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-             .image = target.color().handle(),
+             .image = target.hdr().handle(),
              .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)},
             {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
              .srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
@@ -81,12 +55,12 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
              .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)},
         }));
 
-    VkRenderingAttachmentInfo colorAttachmentInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                                                  .imageView = target.color().view(),
-                                                  .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-                                                  .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                                  .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-                                                  .clearValue{.color{0.0f, 0.0f, 0.0f, 1.0f}}};
+    VkRenderingAttachmentInfo hdrAttachmentInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                                                .imageView = target.hdr().view(),
+                                                .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                                                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                                                .clearValue{.color{0.0f, 0.0f, 0.0f, 1.0f}}};
     VkRenderingAttachmentInfo depthAttachmentInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                                                   .imageView = target.depth().view(),
                                                   .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
@@ -97,17 +71,11 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
                                   .renderArea{.extent = extent},
                                   .layerCount = 1,
                                   .colorAttachmentCount = 1,
-                                  .pColorAttachments = &colorAttachmentInfo,
+                                  .pColorAttachments = &hdrAttachmentInfo,
                                   .pDepthAttachment = &depthAttachmentInfo};
     vkCmdBeginRendering(cb, &renderingInfo);
 
-    VkViewport viewport{.width = static_cast<float>(extent.width),
-                        .height = static_cast<float>(extent.height),
-                        .minDepth = 0.0f,
-                        .maxDepth = 1.0f};
-    vkCmdSetViewport(cb, 0, 1, &viewport);
-    VkRect2D scissor{.extent = extent};
-    vkCmdSetScissor(cb, 0, 1, &scissor);
+    setViewportAndScissor(cb, extent);
 
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.handle());
     const VkDescriptorSet textureSet = textures_.set();
@@ -141,6 +109,6 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
                          .dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
                          .oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
                          .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                         .image = target.color().handle(),
+                         .image = target.hdr().handle(),
                          .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)});
 }

@@ -7,6 +7,7 @@
 #include "platform/file_watcher.h"
 #include "platform/window.h"
 #include "render/scene_pass.h"
+#include "render/tonemap_pass.h"
 #include "scene/camera.h"
 #include "scene/light.h"
 #include "scene/scene.h"
@@ -48,6 +49,11 @@ class App
     void updateFrameData(Frame& frame) const;
     void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, const Frame& frame) const;
 
+    [[nodiscard]] uint32_t hdrTextureIndex() const
+    {
+        return static_cast<uint32_t>(scene_.textures().size());
+    }
+
     Window window_;
     Instance instance_;
     Surface surface_;
@@ -61,12 +67,14 @@ class App
     ShaderCompiler shaderCompiler_;
     std::filesystem::path shaderDirectory_;
     ScenePass scenePass_;
+    TonemapPass tonemapPass_;
     FileWatcher shaderWatcher_;
     ImGuiLayer imgui_;
     ViewportTarget viewport_;
 
     Camera camera_{glm::vec3{-8.0f, 2.0f, 0.0f}, glm::radians(90.0f), 0.0f};
     DirectionalLight light_;
+    float exposure_{1.0f};
     glm::vec2 mouseDelta_{};
     bool viewportHovered_{false};
 

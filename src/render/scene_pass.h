@@ -4,12 +4,10 @@
 
 #include <glm/glm.hpp>
 
-#include "vk/graphics_pipeline.h"
+#include "vk/shader_pipeline.h"
 
 #include <cstdint>
-#include <expected>
 #include <filesystem>
-#include <string>
 
 class BindlessTextures;
 class Device;
@@ -45,16 +43,14 @@ class ScenePass
               std::filesystem::path shaderPath);
 
     // Keeps the current pipeline if the shader fails to compile.
-    void reloadShaders();
+    void reloadShaders()
+    {
+        pipeline_.reload();
+    }
 
     void record(VkCommandBuffer cb, const ViewportTarget& target, const Scene& scene, VkDeviceAddress frameData) const;
 
   private:
-    [[nodiscard]] std::expected<GraphicsPipeline, std::string> buildPipeline() const;
-
-    const Device& device_;
-    const ShaderCompiler& shaderCompiler_;
     const BindlessTextures& textures_;
-    std::filesystem::path shaderPath_;
-    GraphicsPipeline pipeline_;
+    ShaderPipeline pipeline_;
 };

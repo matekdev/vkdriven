@@ -24,14 +24,18 @@ App::App()
       swapchain_{device_, surface_, window_}, commandPool_{device_},
       frames_{device_, allocator_, commandPool_, sizeof(FrameData)},
       scene_{orThrow(Scene::loadGltf(device_, allocator_, commandPool_, scenePath))},
-      bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size())},
+      bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size()) + 1},
       shaderDirectory_{VKDRIVEN_SHADER_DIR},
       scenePass_{device_, shaderCompiler_, bindlessTextures_, shaderDirectory_ / "scene.slang"},
+      tonemapPass_{device_, shaderCompiler_, bindlessTextures_, shaderDirectory_ / "tonemap.slang"},
       shaderWatcher_{shaderDirectory_},
       imgui_{window_, instance_, device_, FrameResources::maxFramesInFlight, swapchain_.format()},
       viewport_{allocator_, device_.depthFormat(), swapchain_.extent()}
 {
     bindlessTextures_.write(scene_.textures());
+
+    const VkDescriptorImageInfo hdrInfo = viewport_.hdrDescriptorInfo();
+    bindlessTextures_.write(std::span{&hdrInfo, 1}, hdrTextureIndex());
 
     std::println("Loaded {}: {} meshes, {} primitives, {} vertices, {} indices, {} draws, {} transforms, {} textures",
                  scenePath, scene_.meshes().size(), scene_.primitives().size(), scene_.vertexCount(),
@@ -54,6 +58,7 @@ void App::run()
         {
             reloadRequested_ = false;
             scenePass_.reloadShaders();
+            tonemapPass_.reloadShaders();
         }
 
         if (updateSwapchain_)
@@ -71,6 +76,9 @@ void App::run()
             // Earlier frames may still be rendering into or sampling the old images.
             device_.waitIdle();
             viewport_.resize(requestedViewportExtent_);
+
+            const VkDescriptorImageInfo hdrInfo = viewport_.hdrDescriptorInfo();
+            bindlessTextures_.write(std::span{&hdrInfo, 1}, hdrTextureIndex());
         }
 
         imgui_.beginFrame();
@@ -104,6 +112,7 @@ void App::drawUi()
     viewportHovered_ = viewportPanel.hovered;
     drawStatsPanel(scene_, viewport_);
     drawLightPanel(light_);
+    drawTonemapPanel(exposure_);
 }
 
 void App::drawFrame()
@@ -176,6 +185,7 @@ void App::recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, const Fra
     chk(vkBeginCommandBuffer(cb, &cbBI));
 
     scenePass_.record(cb, viewport_, scene_, frame.shaderData.deviceAddress());
+    tonemapPass_.record(cb, viewport_, hdrTextureIndex(), exposure_);
     imgui_.record(cb, swapchain_, imageIndex);
 
     chk(vkEndCommandBuffer(cb));
