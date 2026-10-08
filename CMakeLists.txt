@@ -54,6 +54,8 @@ add_executable(vkdriven
     src/platform/window.h
     src/render/scene_pass.cpp
     src/render/scene_pass.h
+    src/render/tonemap_pass.cpp
+    src/render/tonemap_pass.h
     src/scene/camera.cpp
     src/scene/camera.h
     src/scene/gltf.cpp
@@ -77,6 +79,7 @@ add_executable(vkdriven
     src/vk/buffer.cpp
     src/vk/buffer.h
     src/vk/check.h
+    src/vk/commands.h
     src/vk/command_pool.cpp
     src/vk/command_pool.h
     src/vk/device.cpp
@@ -92,6 +95,8 @@ add_executable(vkdriven
     src/vk/instance.h
     src/vk/shader_compiler.cpp
     src/vk/shader_compiler.h
+    src/vk/shader_pipeline.cpp
+    src/vk/shader_pipeline.h
     src/vk/surface.cpp
     src/vk/surface.h
     src/vk/swapchain.cpp

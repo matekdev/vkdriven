@@ -51,11 +51,16 @@ BindlessTextures::BindlessTextures(const Device& device, uint32_t capacity)
 
 void BindlessTextures::write(std::span<const Texture> textures, uint32_t firstIndex) const
 {
-    assert(firstIndex + textures.size() <= capacity_);
-
     const auto imageInfos = textures |
                             std::views::transform([](const Texture& texture) { return texture.descriptorInfo(); }) |
                             std::ranges::to<std::vector>();
+    write(imageInfos, firstIndex);
+}
+
+void BindlessTextures::write(std::span<const VkDescriptorImageInfo> imageInfos, uint32_t firstIndex) const
+{
+    assert(firstIndex + imageInfos.size() <= capacity_);
+
     VkWriteDescriptorSet write{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                                .dstSet = set_,
                                .dstBinding = 0,

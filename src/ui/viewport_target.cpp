@@ -88,6 +88,30 @@ void ViewportTarget::create(VkExtent2D extent)
     };
     depth_ = Image{allocator_, depthCI, VK_IMAGE_ASPECT_DEPTH_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
 
+    VkImageCreateInfo hdrCI{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = hdrFormat,
+        .extent{.width = extent.width, .height = extent.height, .depth = 1},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+    hdr_ = Image{allocator_, hdrCI, VK_IMAGE_ASPECT_COLOR_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
+
+    VkSamplerCreateInfo hdrSamplerCI{.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+                                     .magFilter = VK_FILTER_LINEAR,
+                                     .minFilter = VK_FILTER_LINEAR,
+                                     .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+                                     .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+                                     .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE};
+    VkSampler hdrSampler{VK_NULL_HANDLE};
+    chk(vkCreateSampler(allocatorInfo.device, &hdrSamplerCI, nullptr, &hdrSampler));
+    hdrSampler_ = DeviceHandle<VkSampler>{allocatorInfo.device, hdrSampler};
+
     texture_ = ImGui_ImplVulkan_AddTexture(displayView_.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
@@ -95,8 +119,11 @@ void ViewportTarget::destroy()
 {
     if (texture_ != VK_NULL_HANDLE)
         ImGui_ImplVulkan_RemoveTexture(texture_);
+
     texture_ = VK_NULL_HANDLE;
     displayView_.reset();
     color_.reset();
     depth_.reset();
+    hdr_.reset();
+    hdrSampler_.reset();
 }

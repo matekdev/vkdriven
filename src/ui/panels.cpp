@@ -54,3 +54,10 @@ void drawLightPanel(DirectionalLight& light)
     ImGui::SliderFloat("Intensity", &light.intensity, 0.0f, 10.0f);
     ImGui::End();
 }
+
+void drawTonemapPanel(float& exposure)
+{
+    ImGui::Begin(ICON_FA_CAMERA " Tonemapping###Tonemapping");
+    ImGui::SliderFloat("Exposure", &exposure, 0.01f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+    ImGui::End();
+}
