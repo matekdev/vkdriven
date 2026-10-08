@@ -74,7 +74,7 @@ class App
 
     Camera camera_{glm::vec3{-8.0f, 2.0f, 0.0f}, glm::radians(90.0f), 0.0f};
     DirectionalLight light_;
-    float exposure_{1.0f};
+    TonemapSettings tonemapSettings_;
     glm::vec2 mouseDelta_{};
     bool viewportHovered_{false};
 

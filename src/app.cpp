@@ -112,7 +112,7 @@ void App::drawUi()
     viewportHovered_ = viewportPanel.hovered;
     drawStatsPanel(scene_, viewport_);
     drawLightPanel(light_);
-    drawTonemapPanel(exposure_);
+    drawTonemapPanel(tonemapSettings_);
 }
 
 void App::drawFrame()
@@ -185,7 +185,7 @@ void App::recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, const Fra
     chk(vkBeginCommandBuffer(cb, &cbBI));
 
     scenePass_.record(cb, viewport_, scene_, frame.shaderData.deviceAddress());
-    tonemapPass_.record(cb, viewport_, hdrTextureIndex(), exposure_);
+    tonemapPass_.record(cb, viewport_, hdrTextureIndex(), tonemapSettings_);
     imgui_.record(cb, swapchain_, imageIndex);
 
     chk(vkEndCommandBuffer(cb));
