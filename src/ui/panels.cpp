@@ -2,11 +2,13 @@
 
 #include <IconsFontAwesome6.h>
 
+#include "render/tonemap_pass.h"
 #include "scene/light.h"
 #include "scene/scene.h"
 #include "ui/viewport_target.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -55,9 +57,15 @@ void drawLightPanel(DirectionalLight& light)
     ImGui::End();
 }
 
-void drawTonemapPanel(float& exposure)
+void drawTonemapPanel(TonemapSettings& settings)
 {
+    constexpr auto tonemapperNames =
+        std::to_array<const char*>({"Exponential", "Reinhard", "ACES", "AgX", "Khronos PBR Neutral"});
+
     ImGui::Begin(ICON_FA_CAMERA " Tonemapping###Tonemapping");
-    ImGui::SliderFloat("Exposure", &exposure, 0.01f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+    int tonemapper = static_cast<int>(settings.tonemapper);
+    if (ImGui::Combo("Tonemapper", &tonemapper, tonemapperNames.data(), static_cast<int>(tonemapperNames.size())))
+        settings.tonemapper = static_cast<Tonemapper>(tonemapper);
+    ImGui::SliderFloat("Exposure", &settings.exposure, 0.01f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
     ImGui::End();
 }

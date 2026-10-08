@@ -20,7 +20,7 @@ TonemapPass::TonemapPass(const Device& device, const ShaderCompiler& shaderCompi
 }
 
 void TonemapPass::record(VkCommandBuffer cb, const ViewportTarget& target, uint32_t hdrTextureIndex,
-                         float exposure) const
+                         const TonemapSettings& settings) const
 {
     const VkExtent2D extent = target.extent();
 
@@ -55,7 +55,8 @@ void TonemapPass::record(VkCommandBuffer cb, const ViewportTarget& target, uint3
     vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.layout(), 0, 1, &textureSet, 0, nullptr);
 
     constexpr VkShaderStageFlags pushStages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    const TonemapConstants constants{.hdrTextureIndex = hdrTextureIndex, .exposure = exposure};
+    const TonemapConstants constants{
+        .hdrTextureIndex = hdrTextureIndex, .exposure = settings.exposure, .tonemapper = settings.tonemapper};
     vkCmdPushConstants(cb, pipeline_.layout(), pushStages, 0, sizeof(TonemapConstants), &constants);
     vkCmdDraw(cb, 3, 1, 0, 0);
     vkCmdEndRendering(cb);

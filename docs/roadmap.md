@@ -93,7 +93,7 @@ Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* c
 
 - [ ] Before starting: tag P2 and take a "before" screenshot of the Lambert Sponza for the blog post
 - [ ] Correct color handling: sRGB textures vs. linear data textures (metallic-roughness and normal maps load as `UNORM`), sRGB output (*Gamma Correction*)
-- [ ] HDR render target (`R16G16B16A16_SFLOAT`) and a separate fullscreen tonemap pass with exposure control in ImGui (*HDR*). The chapter uses Reinhard/exposure; add ACES or AgX afterwards.
+- [x] HDR render target (`R16G16B16A16_SFLOAT`) and a separate fullscreen tonemap pass with exposure control in ImGui (*HDR*). The chapter uses Reinhard/exposure; add ACES or AgX afterwards.
 - [x] Read the theory: microfacets, energy conservation, the reflectance equation, metal/roughness workflow (*PBR → Theory*)
 - [x] Cook-Torrance BRDF: GGX NDF, Smith geometry term, Schlick Fresnel. Material gains metallic/roughness factors and the glTF metallic-roughness texture (blue = metallic, green = roughness); `FrameData` gains camera position and light color × intensity (*PBR → Lighting*)
 - [ ] Normal mapping with the glTF `TANGENT` attribute (Sponza ships it) and a flat-normal default texture (*Normal Mapping*)
