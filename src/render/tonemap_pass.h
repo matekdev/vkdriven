@@ -24,7 +24,7 @@ enum class Tonemapper : uint32_t
 
 struct TonemapSettings
 {
-    float exposure{2.5f};
+    float exposure{1.5f};
     Tonemapper tonemapper{Tonemapper::Agx};
 };
 
