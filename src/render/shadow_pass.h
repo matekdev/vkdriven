@@ -15,6 +15,15 @@ class Device;
 class Scene;
 class ShaderCompiler;
 
+// Depth bias added while rendering the shadow map, pushing stored depths away from the light so surfaces
+// don't shadow themselves (shadow acne). Too much detaches shadows from their casters (peter-panning).
+// The slope term grows with how steeply the surface faces away from the light.
+struct ShadowSettings
+{
+    float constantBias{0.0f};
+    float slopeBias{0.1f};
+};
+
 // Renders the scene's depth as seen from the directional light into the shadow map, then leaves the shadow map
 // ready to be sampled by the scene pass. Throws std::runtime_error from the constructor if the shader fails to compile.
 class ShadowPass
@@ -39,7 +48,8 @@ class ShadowPass
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     }
 
-    void record(VkCommandBuffer cb, const Scene& scene, VkDeviceAddress frameData) const;
+    void record(VkCommandBuffer cb, const Scene& scene, VkDeviceAddress frameData,
+                const ShadowSettings& settings) const;
 
   private:
     const BindlessTextures& textures_;

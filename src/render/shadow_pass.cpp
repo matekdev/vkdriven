@@ -30,17 +30,20 @@ Image createShadowMap(const Allocator& allocator)
     return Image{allocator, imageCI, VK_IMAGE_ASPECT_DEPTH_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
 }
 
-// Nearest, so each lookup returns one stored depth. Outside the map the border depth is 0, which is the far
-// plane in reverse-Z, so anything the light's box doesn't cover counts as lit.
+// A comparison sampler: each lookup returns how much of the 2x2 texels around the point pass
+// fragmentDepth >= storedDepth (reverse-Z: lit if nothing is closer to the light), blended by the linear filter.
+// Outside the map the border depth is 0, the far plane in reverse-Z, so anything the light's box doesn't cover is lit.
 DeviceHandle<VkSampler> createShadowSampler(const Device& device)
 {
     VkSamplerCreateInfo samplerCI{.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-                                  .magFilter = VK_FILTER_NEAREST,
-                                  .minFilter = VK_FILTER_NEAREST,
+                                  .magFilter = VK_FILTER_LINEAR,
+                                  .minFilter = VK_FILTER_LINEAR,
                                   .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
                                   .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
                                   .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
                                   .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                                  .compareEnable = VK_TRUE,
+                                  .compareOp = VK_COMPARE_OP_GREATER_OR_EQUAL,
                                   .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK};
     VkSampler sampler{VK_NULL_HANDLE};
     chk(vkCreateSampler(device.handle(), &samplerCI, nullptr, &sampler));
@@ -55,11 +58,15 @@ ShadowPass::ShadowPass(const Device& device, const Allocator& allocator, const S
       pipeline_{device,
                 shaderCompiler,
                 std::move(shaderPath),
-                {.setLayout = textures.layout(), .pushConstantSize = sizeof(DrawConstants), .depthFormat = format}}
+                {.setLayout = textures.layout(),
+                 .pushConstantSize = sizeof(DrawConstants),
+                 .depthFormat = format,
+                 .dynamicDepthBias = true}}
 {
 }
 
-void ShadowPass::record(VkCommandBuffer cb, const Scene& scene, VkDeviceAddress frameData) const
+void ShadowPass::record(VkCommandBuffer cb, const Scene& scene, VkDeviceAddress frameData,
+                        const ShadowSettings& settings) const
 {
     constexpr VkExtent2D extent{.width = size, .height = size};
 
@@ -90,6 +97,8 @@ void ShadowPass::record(VkCommandBuffer cb, const Scene& scene, VkDeviceAddress 
     vkCmdBeginRendering(cb, &renderingInfo);
 
     setViewportAndScissor(cb, extent);
+    // Reverse-Z: away from the light is smaller depth, so the bias is negative.
+    vkCmdSetDepthBias(cb, -settings.constantBias, 0.0f, -settings.slopeBias);
 
     recordSceneDraws(cb, pipeline_, textures_, scene, frameData);
     vkCmdEndRendering(cb);

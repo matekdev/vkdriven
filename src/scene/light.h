@@ -9,8 +9,8 @@
 // from +X, elevation tilts up from the ground plane.
 struct DirectionalLight
 {
-    float azimuthRadians{glm::radians(30.0f)};
-    float elevationRadians{glm::radians(40.0f)};
+    float azimuthRadians{glm::radians(180.0f)};
+    float elevationRadians{glm::radians(90.0f)};
     glm::vec3 color{1.0f};
     float intensity{3.0f};
     // The shadow map covers a sphere around this point. Sized to fit Sponza.

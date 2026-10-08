@@ -117,6 +117,7 @@ void App::drawUi()
     viewportHovered_ = viewportPanel.hovered;
     drawStatsPanel(scene_, viewport_);
     drawLightPanel(light_);
+    drawShadowPanel(shadowSettings_);
     drawTonemapPanel(tonemapSettings_);
 }
 
@@ -191,7 +192,7 @@ void App::recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, const Fra
                                   .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
     chk(vkBeginCommandBuffer(cb, &cbBI));
 
-    shadowPass_.record(cb, scene_, frame.shaderData.deviceAddress());
+    shadowPass_.record(cb, scene_, frame.shaderData.deviceAddress(), shadowSettings_);
     scenePass_.record(cb, viewport_, scene_, frame.shaderData.deviceAddress());
     tonemapPass_.record(cb, viewport_, hdrTextureIndex(), tonemapSettings_);
     imgui_.record(cb, swapchain_, imageIndex);
