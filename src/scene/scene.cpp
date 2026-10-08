@@ -85,6 +85,14 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
         textures.push_back(std::move(*whiteTexture));
     }
 
+    constexpr std::array<std::byte, 4> flatNormalPixel{std::byte{0x80}, std::byte{0x80}, std::byte{0xff},
+                                                       std::byte{0xff}};
+    auto flatNormalTexture =
+        Texture::fromPixels(device, allocator, commandPool, 1, 1, flatNormalPixel, VK_FORMAT_R8G8B8A8_UNORM);
+    if (!flatNormalTexture)
+        return std::unexpected{flatNormalTexture.error()};
+    textures.push_back(std::move(*flatNormalTexture));
+
     // Cached per format, so an image used both as color and as data would be loaded once for each.
     std::vector<std::optional<uint32_t>> loadedSrgbTextureIndices(asset->textures.size());
     std::vector<std::optional<uint32_t>> loadedLinearTextureIndices(asset->textures.size());
@@ -130,6 +138,15 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
                 return std::unexpected{textureIndex.error()};
             sceneMaterial.metallicRoughnessTextureIndex = *textureIndex;
         }
+
+        if (material.normalTexture.has_value())
+        {
+            const auto textureIndex = loadTexture(material.normalTexture->textureIndex, VK_FORMAT_R8G8B8A8_UNORM);
+            if (!textureIndex)
+                return std::unexpected{textureIndex.error()};
+            sceneMaterial.normalTextureIndex = *textureIndex;
+            sceneMaterial.normalScale = material.normalTexture->scale;
+        }
     }
     const auto defaultMaterialIndex = static_cast<uint32_t>(materials.size());
     materials.push_back({});
@@ -167,6 +184,13 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
                 fastgltf::iterateAccessorWithIndex<glm::vec2>(*asset, asset->accessors[uv->accessorIndex],
                                                               [&](glm::vec2 value, size_t index)
                                                               { vertices[firstVertex + index].uv = value; });
+            }
+
+            if (const auto tangent = primitive.findAttribute("TANGENT"); tangent != primitive.attributes.end())
+            {
+                fastgltf::iterateAccessorWithIndex<glm::vec4>(*asset, asset->accessors[tangent->accessorIndex],
+                                                              [&](glm::vec4 value, size_t index)
+                                                              { vertices[firstVertex + index].tangent = value; });
             }
 
             const fastgltf::Accessor& indexAccessor = asset->accessors[primitive.indicesAccessor.value()];
