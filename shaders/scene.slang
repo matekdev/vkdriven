@@ -1,60 +1,6 @@
+import common;
+
 static const float PI = 3.14159265359;
-
-struct VSInput
-{
-    float3 Pos;
-    float3 Normal;
-    float2 UV;
-    float4 Tangent;
-};
-
-struct FrameData
-{
-    float4x4 view;
-    float4x4 projection;
-    float4 directionToLight;
-    float4 cameraPosition;
-    float4 lightRadiance;
-};
-
-struct Material
-{
-    float4 baseColorFactor;
-    uint baseColorTextureIndex;
-    uint metallicRoughnessTextureIndex;
-    float metallicFactor;
-    float roughnessFactor;
-    float alphaCutoff;
-    uint normalTextureIndex;
-    float normalScale;
-    uint padding;
-};
-
-struct Draw
-{
-    uint primitiveIndex;
-    uint materialIndex;
-    uint transformIndex;
-};
-
-struct Transform
-{
-    float4x4 model;
-    float4x4 normal;
-};
-
-struct DrawConstants
-{
-    FrameData* frame;
-    Draw* draws;
-    Transform* transforms;
-    Material* materials;
-    uint drawIndex;
-};
-
-[[vk::push_constant]] DrawConstants constants;
-
-[[vk::binding(0, 0)]] Sampler2D textures[];
 
 struct VSOutput
 {
@@ -105,6 +51,19 @@ float3 ApplyNormalMap(float3 N, float4 tangent, Material material, float2 uv)
 
     // Rows T, B, N: mul(v, TBN) = v.x * T + v.y * B + v.z * N.
     return normalize(mul(tangentNormal, float3x3(T, B, N)));
+}
+
+// 1 if the light reaches this point, 0 if something closer to the light is in the way.
+float Shadow(float3 worldPos)
+{
+    // Orthographic, so w is 1 and clip space is already NDC.
+    float4 lightClip = mul(constants.frame->lightViewProjection, float4(worldPos, 1.0));
+    float2 uv = lightClip.xy * 0.5 + 0.5;
+    float fragmentDepth = lightClip.z;
+    float closestDepth = textures[constants.frame->shadowMapTextureIndex].Sample(uv).r;
+
+    // Reverse-Z: bigger depth is closer to the light.
+    return fragmentDepth >= closestDepth ? 1.0 : 0.0;
 }
 
 float DistributionGGX(float3 N, float3 H, float roughness)
@@ -187,7 +146,7 @@ float4 main(VSOutput input)
     // Lo = (diffuse  +  specular) * radiance * NdotL
     float3 diffuse = Diffuse(F, albedo, metallic);
     float3 specular = Specular(N, V, L, H, F, roughness);
-    float3 Lo = (diffuse + specular) * radiance * NdotL;
+    float3 Lo = (diffuse + specular) * radiance * NdotL * Shadow(input.WorldPos);
 
     float3 ambient = ambientStrength * albedo;
     return float4(ambient + Lo, 1.0);

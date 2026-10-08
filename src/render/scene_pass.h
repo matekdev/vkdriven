@@ -6,6 +6,7 @@
 
 #include "vk/shader_pipeline.h"
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 
@@ -22,8 +23,11 @@ struct FrameData
     glm::vec4 directionToLight;
     glm::vec4 cameraPosition;
     glm::vec4 lightRadiance;
+    glm::mat4 lightViewProjection;
+    uint32_t shadowMapTextureIndex;
+    std::array<uint32_t, 3> padding{};
 };
-static_assert(sizeof(FrameData) == 176);
+static_assert(sizeof(FrameData) == 256);
 
 struct DrawConstants
 {

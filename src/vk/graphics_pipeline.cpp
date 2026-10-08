@@ -66,13 +66,14 @@ GraphicsPipeline::GraphicsPipeline(const Device& device, VkShaderModule shaderMo
     VkPipelineColorBlendAttachmentState blendAttachment{.colorWriteMask =
                                                             VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                                                             VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
+    const uint32_t colorAttachmentCount = info.colorFormat == VK_FORMAT_UNDEFINED ? 0 : 1;
     VkPipelineColorBlendStateCreateInfo colorBlendState{.sType =
                                                             VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-                                                        .attachmentCount = 1,
+                                                        .attachmentCount = colorAttachmentCount,
                                                         .pAttachments = &blendAttachment};
 
     VkPipelineRenderingCreateInfo renderingCI{.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-                                              .colorAttachmentCount = 1,
+                                              .colorAttachmentCount = colorAttachmentCount,
                                               .pColorAttachmentFormats = &info.colorFormat,
                                               .depthAttachmentFormat = info.depthFormat};
     VkGraphicsPipelineCreateInfo pipelineCI{.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
