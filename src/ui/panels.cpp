@@ -2,6 +2,7 @@
 
 #include <IconsFontAwesome6.h>
 
+#include "render/shadow_pass.h"
 #include "render/tonemap_pass.h"
 #include "scene/light.h"
 #include "scene/scene.h"
@@ -54,6 +55,14 @@ void drawLightPanel(DirectionalLight& light)
     ImGui::SliderAngle("Elevation", &light.elevationRadians, -90.0f, 90.0f);
     ImGui::ColorEdit3("Color", &light.color.x);
     ImGui::SliderFloat("Intensity", &light.intensity, 0.0f, 10.0f);
+    ImGui::End();
+}
+
+void drawShadowPanel(ShadowSettings& settings)
+{
+    ImGui::Begin(ICON_FA_MOON " Shadows###Shadows");
+    ImGui::SliderFloat("Constant bias", &settings.constantBias, 0.0f, 10000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
+    ImGui::SliderFloat("Slope bias", &settings.slopeBias, 0.0f, 10.0f, "%.2f");
     ImGui::End();
 }
 

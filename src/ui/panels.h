@@ -9,6 +9,7 @@
 class Scene;
 class ViewportTarget;
 struct DirectionalLight;
+struct ShadowSettings;
 struct TonemapSettings;
 
 struct ViewportPanelState
@@ -22,4 +23,5 @@ struct ViewportPanelState
 ViewportPanelState drawViewportPanel(ImGuiID dockspace, const ViewportTarget& viewport);
 void drawStatsPanel(const Scene& scene, const ViewportTarget& viewport);
 void drawLightPanel(DirectionalLight& light);
+void drawShadowPanel(ShadowSettings& settings);
 void drawTonemapPanel(TonemapSettings& settings);

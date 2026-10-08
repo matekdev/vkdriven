@@ -21,6 +21,8 @@ struct GraphicsPipelineInfo
     VkFormat colorFormat{VK_FORMAT_UNDEFINED};
     VkFormat depthFormat{VK_FORMAT_UNDEFINED};
     VertexInput vertexInput{VertexInput::Mesh};
+    // Set with vkCmdSetDepthBias before drawing.
+    bool dynamicDepthBias{false};
 };
 
 // The mesh pipeline: Vertex input, one color + one depth attachment (dynamic rendering, reverse-Z),

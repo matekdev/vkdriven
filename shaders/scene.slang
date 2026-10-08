@@ -53,17 +53,31 @@ float3 ApplyNormalMap(float3 N, float4 tangent, Material material, float2 uv)
     return normalize(mul(tangentNormal, float3x3(T, B, N)));
 }
 
-// 1 if the light reaches this point, 0 if something closer to the light is in the way.
+// The same bindless array, viewed as shadow samplers so the shadow map's comparison sampler can be used.
+[[vk::binding(0, 0)]] Sampler2DShadow shadowMaps[];
+
+// How much of the light reaches this point: 1 fully lit, 0 fully shadowed, in between at shadow edges.
 float Shadow(float3 worldPos)
 {
     // Orthographic, so w is 1 and clip space is already NDC.
     float4 lightClip = mul(constants.frame->lightViewProjection, float4(worldPos, 1.0));
     float2 uv = lightClip.xy * 0.5 + 0.5;
     float fragmentDepth = lightClip.z;
-    float closestDepth = textures[constants.frame->shadowMapTextureIndex].Sample(uv).r;
 
-    // Reverse-Z: bigger depth is closer to the light.
-    return fragmentDepth >= closestDepth ? 1.0 : 0.0;
+    Sampler2DShadow shadowMap = shadowMaps[constants.frame->shadowMapTextureIndex];
+    float2 size;
+    shadowMap.GetDimensions(size.x, size.y);
+    float2 texelSize = 1.0 / size;
+
+    // PCF: average the comparison over a 3x3 block of texels. The sampler compares fragmentDepth >= storedDepth
+    // (reverse-Z: lit if nothing is closer to the light) and blends each 2x2 result, so the edges are soft.
+    float lit = 0.0;
+    for (int y = -1; y <= 1; y++)
+    {
+        for (int x = -1; x <= 1; x++)
+            lit += shadowMap.SampleCmpLevelZero(uv + float2(x, y) * texelSize, fragmentDepth);
+    }
+    return lit / 9.0;
 }
 
 float DistributionGGX(float3 N, float3 H, float roughness)
