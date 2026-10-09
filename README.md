@@ -2,6 +2,8 @@
 
 A Vulkan 1.3 renderer, built up one feature at a time.
 
+![vkdriven rendering Sponza with shadows](docs/images/screenshot.png)
+
 ## Status
 
 🚧 Early development. See the [roadmap](docs/roadmap.md).
