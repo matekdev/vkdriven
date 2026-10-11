@@ -14,6 +14,7 @@ class Allocator;
 class BindlessTextures;
 class Device;
 class Scene;
+class PipelineCache;
 class ShaderCompiler;
 
 // Depth bias added while rendering the shadow map, pushing stored depths away from the light so surfaces
@@ -44,7 +45,7 @@ class ShadowPass
     static constexpr uint32_t cascadeCount = 4;
 
     ShadowPass(const Device& device, const Allocator& allocator, const ShaderCompiler& shaderCompiler,
-               const BindlessTextures& textures, std::filesystem::path shaderPath);
+               const PipelineCache& pipelineCache, const BindlessTextures& textures, std::filesystem::path shaderPath);
 
     // Keeps the current pipeline if the shader fails to compile.
     void reloadShaders()

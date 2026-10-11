@@ -10,10 +10,11 @@
 #include <array>
 #include <utility>
 
-ScenePass::ScenePass(const Device& device, const ShaderCompiler& shaderCompiler, const BindlessTextures& textures,
-                     std::filesystem::path shaderPath)
+ScenePass::ScenePass(const Device& device, const ShaderCompiler& shaderCompiler, const PipelineCache& pipelineCache,
+                     const BindlessTextures& textures, std::filesystem::path shaderPath)
     : textures_{textures}, pipeline_{device,
                                      shaderCompiler,
+                                     pipelineCache,
                                      std::move(shaderPath),
                                      {.setLayout = textures.layout(),
                                       .pushConstantSize = sizeof(DrawConstants),

@@ -32,7 +32,8 @@ struct GraphicsPipelineInfo
 class GraphicsPipeline
 {
   public:
-    GraphicsPipeline(const Device& device, VkShaderModule shaderModule, const GraphicsPipelineInfo& info);
+    GraphicsPipeline(const Device& device, VkPipelineCache pipelineCache, VkShaderModule shaderModule,
+                     const GraphicsPipelineInfo& info);
 
     [[nodiscard]] VkPipeline handle() const
     {

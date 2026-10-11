@@ -16,6 +16,7 @@ namespace
 {
 
 constexpr const char* scenePath = "assets/Sponza/Sponza.gltf";
+constexpr const char* pipelineCachePath = "pipeline_cache.bin";
 
 } // namespace
 
@@ -26,12 +27,14 @@ App::App()
       frames_{device_, allocator_, commandPool_, sizeof(FrameData)},
       scene_{orThrow(Scene::loadGltf(device_, allocator_, commandPool_, scenePath))},
       bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size()) + 2},
-      shaderDirectory_{VKDRIVEN_SHADER_DIR},
-      shadowPass_{device_, allocator_, shaderCompiler_, bindlessTextures_, shaderDirectory_ / "shadow.slang"},
-      scenePass_{device_, shaderCompiler_, bindlessTextures_, shaderDirectory_ / "scene.slang"},
-      tonemapPass_{device_, shaderCompiler_, bindlessTextures_, shaderDirectory_ / "tonemap.slang"},
+      pipelineCache_{device_, pipelineCachePath}, shaderDirectory_{VKDRIVEN_SHADER_DIR},
+      shadowPass_{device_, allocator_, shaderCompiler_, pipelineCache_, bindlessTextures_,
+                  shaderDirectory_ / "shadow.slang"},
+      scenePass_{device_, shaderCompiler_, pipelineCache_, bindlessTextures_, shaderDirectory_ / "scene.slang"},
+      tonemapPass_{device_, shaderCompiler_, pipelineCache_, bindlessTextures_, shaderDirectory_ / "tonemap.slang"},
       shaderWatcher_{shaderDirectory_},
-      imgui_{window_, instance_, device_, FrameResources::maxFramesInFlight, swapchain_.format()},
+      imgui_{window_, instance_, device_, pipelineCache_.handle(), FrameResources::maxFramesInFlight,
+             swapchain_.format()},
       viewport_{allocator_, device_.depthFormat(), swapchain_.extent()}
 {
     bindlessTextures_.write(scene_.textures());

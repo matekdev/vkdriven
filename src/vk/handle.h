@@ -39,6 +39,11 @@ inline void destroyHandle(VkDevice device, VkPipeline handle)
     vkDestroyPipeline(device, handle, nullptr);
 }
 
+inline void destroyHandle(VkDevice device, VkPipelineCache handle)
+{
+    vkDestroyPipelineCache(device, handle, nullptr);
+}
+
 inline void destroyHandle(VkDevice device, VkDescriptorSetLayout handle)
 {
     vkDestroyDescriptorSetLayout(device, handle, nullptr);

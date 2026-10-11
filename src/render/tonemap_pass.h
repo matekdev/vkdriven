@@ -9,6 +9,7 @@
 
 class BindlessTextures;
 class Device;
+class PipelineCache;
 class ShaderCompiler;
 class ViewportTarget;
 
@@ -41,8 +42,8 @@ struct TonemapConstants
 class TonemapPass
 {
   public:
-    TonemapPass(const Device& device, const ShaderCompiler& shaderCompiler, const BindlessTextures& textures,
-                std::filesystem::path shaderPath);
+    TonemapPass(const Device& device, const ShaderCompiler& shaderCompiler, const PipelineCache& pipelineCache,
+                const BindlessTextures& textures, std::filesystem::path shaderPath);
 
     // Keeps the current pipeline if the shader fails to compile.
     void reloadShaders()

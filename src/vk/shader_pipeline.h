@@ -9,6 +9,7 @@
 #include <string>
 
 class Device;
+class PipelineCache;
 class ShaderCompiler;
 
 // A graphics pipeline built from a Slang file, rebuilt from the same file and settings on reload().
@@ -16,8 +17,8 @@ class ShaderCompiler;
 class ShaderPipeline
 {
   public:
-    ShaderPipeline(const Device& device, const ShaderCompiler& shaderCompiler, std::filesystem::path shaderPath,
-                   const GraphicsPipelineInfo& info);
+    ShaderPipeline(const Device& device, const ShaderCompiler& shaderCompiler, const PipelineCache& pipelineCache,
+                   std::filesystem::path shaderPath, const GraphicsPipelineInfo& info);
 
     // Keeps the current pipeline if the shader fails to compile.
     void reload();
@@ -37,6 +38,7 @@ class ShaderPipeline
 
     const Device& device_;
     const ShaderCompiler& shaderCompiler_;
+    const PipelineCache& pipelineCache_;
     std::filesystem::path shaderPath_;
     GraphicsPipelineInfo info_;
     GraphicsPipeline pipeline_;

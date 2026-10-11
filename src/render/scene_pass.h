@@ -14,6 +14,7 @@
 class BindlessTextures;
 class Device;
 class Scene;
+class PipelineCache;
 class ShaderCompiler;
 class ViewportTarget;
 
@@ -51,8 +52,8 @@ struct DrawConstants
 class ScenePass
 {
   public:
-    ScenePass(const Device& device, const ShaderCompiler& shaderCompiler, const BindlessTextures& textures,
-              std::filesystem::path shaderPath);
+    ScenePass(const Device& device, const ShaderCompiler& shaderCompiler, const PipelineCache& pipelineCache,
+              const BindlessTextures& textures, std::filesystem::path shaderPath);
 
     // Keeps the current pipeline if the shader fails to compile.
     void reloadShaders()

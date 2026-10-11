@@ -88,6 +88,8 @@ add_executable(vkdriven
     src/vk/commands.h
     src/vk/command_pool.cpp
     src/vk/command_pool.h
+    src/vk/compute_pipeline.cpp
+    src/vk/compute_pipeline.h
     src/vk/device.cpp
     src/vk/device.h
     src/vk/frame_resources.cpp
@@ -99,6 +101,8 @@ add_executable(vkdriven
     src/vk/image.h
     src/vk/instance.cpp
     src/vk/instance.h
+    src/vk/pipeline_cache.cpp
+    src/vk/pipeline_cache.h
     src/vk/shader_compiler.cpp
     src/vk/shader_compiler.h
     src/vk/shader_pipeline.cpp

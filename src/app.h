@@ -20,6 +20,7 @@
 #include "vk/device.h"
 #include "vk/frame_resources.h"
 #include "vk/instance.h"
+#include "vk/pipeline_cache.h"
 #include "vk/shader_compiler.h"
 #include "vk/surface.h"
 #include "vk/swapchain.h"
@@ -71,6 +72,7 @@ class App
     Scene scene_;
     BindlessTextures bindlessTextures_;
     ShaderCompiler shaderCompiler_;
+    PipelineCache pipelineCache_;
     std::filesystem::path shaderDirectory_;
     ShadowPass shadowPass_;
     ScenePass scenePass_;
