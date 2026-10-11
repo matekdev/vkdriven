@@ -17,7 +17,14 @@ class Camera
 
     [[nodiscard]] glm::mat4 view() const;
     [[nodiscard]] glm::mat4 projection(float aspect) const;
+    // The same projection cut down to view depths [sliceNear, sliceFar], e.g. to find a shadow cascade's slice.
+    [[nodiscard]] glm::mat4 projection(float aspect, float sliceNear, float sliceFar) const;
     [[nodiscard]] glm::vec3 worldPosition() const;
+
+    [[nodiscard]] float nearPlane() const
+    {
+        return nearPlane_;
+    }
 
   private:
     [[nodiscard]] bool updateLooking(const Window& window, bool viewportHovered);

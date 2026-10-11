@@ -63,6 +63,11 @@ void drawShadowPanel(ShadowSettings& settings)
     ImGui::Begin(ICON_FA_MOON " Shadows###Shadows");
     ImGui::SliderFloat("Constant bias", &settings.constantBias, 0.0f, 10000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
     ImGui::SliderFloat("Slope bias", &settings.slopeBias, 0.0f, 10.0f, "%.2f");
+    ImGui::SliderFloat("Normal offset", &settings.normalOffset, 0.0f, 5.0f, "%.2f texels");
+    ImGui::Separator();
+    ImGui::SliderFloat("Distance", &settings.distance, 5.0f, 100.0f, "%.0f m");
+    ImGui::SliderFloat("Split lambda", &settings.splitLambda, 0.0f, 1.0f, "%.2f");
+    ImGui::Checkbox("Show cascades", &settings.showCascades);
     ImGui::End();
 }
 

@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+#include "render/shadow_cascades.h"
 #include "ui/panels.h"
 #include "util/expected.h"
 #include "vk/check.h"
@@ -175,13 +176,20 @@ void App::updateFrameData(Frame& frame) const
     const VkExtent2D extent = viewport_.extent();
     const float aspect{static_cast<float>(extent.width) / static_cast<float>(extent.height)};
 
+    const ShadowCascades cascades =
+        computeShadowCascades(camera_, aspect, light_.directionToLight(), shadowSettings_);
+
     const FrameData frameData{.view = camera_.view(),
                               .projection = camera_.projection(aspect),
                               .directionToLight = glm::vec4{light_.directionToLight(), 0.0f},
                               .cameraPosition = glm::vec4{camera_.worldPosition(), 0.0f},
                               .lightRadiance = glm::vec4{light_.radiance(), 0.0f},
-                              .lightViewProjection = light_.viewProjection(),
-                              .shadowMapTextureIndex = shadowMapTextureIndex()};
+                              .lightViewProjections = cascades.viewProjections,
+                              .cascadeSplitDepths = cascades.splitDepths,
+                              .cascadeTexelSizes = cascades.texelSizes,
+                              .shadowMapTextureIndex = shadowMapTextureIndex(),
+                              .normalOffset = shadowSettings_.normalOffset,
+                              .showCascades = shadowSettings_.showCascades ? 1u : 0u};
     frame.shaderData.write(std::span{&frameData, 1});
 }
 

@@ -10,7 +10,7 @@
 #include <span>
 
 void recordSceneDraws(VkCommandBuffer cb, const ShaderPipeline& pipeline, const BindlessTextures& textures,
-                      const Scene& scene, VkDeviceAddress frameData)
+                      const Scene& scene, VkDeviceAddress frameData, uint32_t cascadeIndex)
 {
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
     const VkDescriptorSet textureSet = textures.set();
@@ -24,7 +24,8 @@ void recordSceneDraws(VkCommandBuffer cb, const ShaderPipeline& pipeline, const 
     const DrawConstants constants{.frame = frameData,
                                   .draws = scene.drawBufferAddress(),
                                   .transforms = scene.transformBufferAddress(),
-                                  .materials = scene.materialBufferAddress()};
+                                  .materials = scene.materialBufferAddress(),
+                                  .cascadeIndex = cascadeIndex};
     vkCmdPushConstants(cb, pipeline.layout(), pushStages, 0, sizeof(DrawConstants), &constants);
 
     const std::span<const Draw> draws = scene.draws();

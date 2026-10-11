@@ -17,7 +17,7 @@ Image::Image(const Allocator& allocator, const VkImageCreateInfo& imageCI, VkIma
     VkImageViewCreateInfo viewCI{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = image_,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .viewType = imageCI.arrayLayers > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D,
         .format = format_,
         .subresourceRange{.aspectMask = aspect, .levelCount = imageCI.mipLevels, .layerCount = imageCI.arrayLayers}};
     VkImageView view{VK_NULL_HANDLE};

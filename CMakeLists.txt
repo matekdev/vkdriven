@@ -56,6 +56,8 @@ add_executable(vkdriven
     src/render/scene_draws.h
     src/render/scene_pass.cpp
     src/render/scene_pass.h
+    src/render/shadow_cascades.cpp
+    src/render/shadow_cascades.h
     src/render/shadow_pass.cpp
     src/render/shadow_pass.h
     src/render/tonemap_pass.cpp
