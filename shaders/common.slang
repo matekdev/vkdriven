@@ -15,9 +15,13 @@ public struct FrameData
     public float4 directionToLight;
     public float4 cameraPosition;
     public float4 lightRadiance;
-    public float4x4 lightViewProjection;
+    public float4x4 lightViewProjections[4];
+    public float4 cascadeSplitDepths;
+    public float4 cascadeTexelSizes;
     public uint shadowMapTextureIndex;
-    public uint padding[3];
+    public float normalOffset;
+    public uint showCascades;
+    public uint padding;
 };
 
 public struct Material
@@ -53,6 +57,7 @@ public struct DrawConstants
     public Transform* transforms;
     public Material* materials;
     public uint drawIndex;
+    public uint cascadeIndex;
 };
 
 [[vk::push_constant]] public DrawConstants constants;

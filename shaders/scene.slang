@@ -53,21 +53,46 @@ float3 ApplyNormalMap(float3 N, float4 tangent, Material material, float2 uv)
     return normalize(mul(tangentNormal, float3x3(T, B, N)));
 }
 
-// The same bindless array, viewed as shadow samplers so the shadow map's comparison sampler can be used.
-[[vk::binding(0, 0)]] Sampler2DShadow shadowMaps[];
+// The same bindless array, viewed as layered shadow samplers so the shadow map's comparison sampler can be used.
+[[vk::binding(0, 0)]] Sampler2DArrayShadow shadowMaps[];
+
+static const uint cascadeCount = 4;
+static const float3 cascadeColors[cascadeCount] = {
+    float3(1.0, 0.3, 0.3), float3(0.3, 1.0, 0.3), float3(0.3, 0.3, 1.0), float3(1.0, 1.0, 0.3)
+};
+
+// The first cascade whose slice of the view contains this point, or cascadeCount past the shadow distance.
+uint CascadeIndex(float3 worldPos)
+{
+    // The camera looks down -Z in view space.
+    float viewDepth = -mul(constants.frame->view, float4(worldPos, 1.0)).z;
+    for (uint cascade = 0; cascade < cascadeCount; cascade++)
+    {
+        if (viewDepth < constants.frame->cascadeSplitDepths[cascade])
+            return cascade;
+    }
+    return cascadeCount;
+}
 
 // How much of the light reaches this point: 1 fully lit, 0 fully shadowed, in between at shadow edges.
-float Shadow(float3 worldPos)
+float Shadow(float3 worldPos, float3 normal, uint cascade)
 {
+    if (cascade >= cascadeCount)
+        return 1.0;
+
+    // Normal-offset bias: look up from a point pushed off the surface along its normal, by a whole number of
+    // this cascade's texels, so the surface doesn't compare against its own stored depth.
+    float3 offsetPos = worldPos + normal * constants.frame->normalOffset * constants.frame->cascadeTexelSizes[cascade];
+
     // Orthographic, so w is 1 and clip space is already NDC.
-    float4 lightClip = mul(constants.frame->lightViewProjection, float4(worldPos, 1.0));
+    float4 lightClip = mul(constants.frame->lightViewProjections[cascade], float4(offsetPos, 1.0));
     float2 uv = lightClip.xy * 0.5 + 0.5;
     float fragmentDepth = lightClip.z;
 
-    Sampler2DShadow shadowMap = shadowMaps[constants.frame->shadowMapTextureIndex];
-    float2 size;
-    shadowMap.GetDimensions(size.x, size.y);
-    float2 texelSize = 1.0 / size;
+    Sampler2DArrayShadow shadowMap = shadowMaps[constants.frame->shadowMapTextureIndex];
+    float3 size;
+    shadowMap.GetDimensions(size.x, size.y, size.z);
+    float2 texelSize = 1.0 / size.xy;
 
     // PCF: average the comparison over a 3x3 block of texels. The sampler compares fragmentDepth >= storedDepth
     // (reverse-Z: lit if nothing is closer to the light) and blends each 2x2 result, so the edges are soft.
@@ -75,7 +100,7 @@ float Shadow(float3 worldPos)
     for (int y = -1; y <= 1; y++)
     {
         for (int x = -1; x <= 1; x++)
-            lit += shadowMap.SampleCmpLevelZero(uv + float2(x, y) * texelSize, fragmentDepth);
+            lit += shadowMap.SampleCmpLevelZero(float3(uv + float2(x, y) * texelSize, cascade), fragmentDepth);
     }
     return lit / 9.0;
 }
@@ -143,7 +168,8 @@ float4 main(VSOutput input)
     float metallic = material.metallicFactor * metallicRoughness.b;
     float roughness = max(material.roughnessFactor * metallicRoughness.g, minRoughness);
 
-    float3 N = ApplyNormalMap(normalize(input.Normal), input.Tangent, material, input.UV);
+    float3 vertexNormal = normalize(input.Normal);
+    float3 N = ApplyNormalMap(vertexNormal, input.Tangent, material, input.UV);
     float3 L = normalize(constants.frame->directionToLight.xyz);
     float3 V = normalize(constants.frame->cameraPosition.xyz - input.WorldPos);
     float3 H = normalize(L + V);
@@ -160,8 +186,13 @@ float4 main(VSOutput input)
     // Lo = (diffuse  +  specular) * radiance * NdotL
     float3 diffuse = Diffuse(F, albedo, metallic);
     float3 specular = Specular(N, V, L, H, F, roughness);
-    float3 Lo = (diffuse + specular) * radiance * NdotL * Shadow(input.WorldPos);
+    uint cascade = CascadeIndex(input.WorldPos);
+    // The vertex normal, not the normal-mapped one: the offset has to follow the geometry the shadow map stored.
+    float3 Lo = (diffuse + specular) * radiance * NdotL * Shadow(input.WorldPos, vertexNormal, cascade);
 
     float3 ambient = ambientStrength * albedo;
-    return float4(ambient + Lo, 1.0);
+    float3 color = ambient + Lo;
+    if (constants.frame->showCascades != 0 && cascade < cascadeCount)
+        color *= cascadeColors[cascade];
+    return float4(color, 1.0);
 }

@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-// A VkImage, its VMA allocation and a view covering every mip level and layer.
+// A VkImage, its VMA allocation and a view covering every mip level and layer (an array view if it has several).
 class Image
 {
   public:

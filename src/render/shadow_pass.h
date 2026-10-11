@@ -6,6 +6,7 @@
 #include "vk/image.h"
 #include "vk/shader_pipeline.h"
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 
@@ -18,19 +19,29 @@ class ShaderCompiler;
 // Depth bias added while rendering the shadow map, pushing stored depths away from the light so surfaces
 // don't shadow themselves (shadow acne). Too much detaches shadows from their casters (peter-panning).
 // The slope term grows with how steeply the surface faces away from the light.
+// Normal-offset bias moves the lookup point off the surface along its normal, measured in shadow map texels,
+// so it scales with each cascade's resolution.
 struct ShadowSettings
 {
     float constantBias{0.0f};
     float slopeBias{0.1f};
+    float normalOffset{1.0f};
+    // How far from the camera shadows reach. Beyond it everything is lit.
+    float distance{40.0f};
+    // Blends the cascade splits between uniform (0) and logarithmic (1) spacing.
+    float splitLambda{0.75f};
+    bool showCascades{false};
 };
 
-// Renders the scene's depth as seen from the directional light into the shadow map, then leaves the shadow map
-// ready to be sampled by the scene pass. Throws std::runtime_error from the constructor if the shader fails to compile.
+// Renders the scene's depth as seen from the directional light into one shadow map layer per cascade, then leaves
+// the shadow map ready to be sampled by the scene pass. Throws std::runtime_error from the constructor if the
+// shader fails to compile.
 class ShadowPass
 {
   public:
     static constexpr VkFormat format = VK_FORMAT_D32_SFLOAT;
     static constexpr uint32_t size = 2048;
+    static constexpr uint32_t cascadeCount = 4;
 
     ShadowPass(const Device& device, const Allocator& allocator, const ShaderCompiler& shaderCompiler,
                const BindlessTextures& textures, std::filesystem::path shaderPath);
@@ -54,6 +65,7 @@ class ShadowPass
   private:
     const BindlessTextures& textures_;
     Image shadowMap_;
+    std::array<DeviceHandle<VkImageView>, cascadeCount> cascadeViews_;
     DeviceHandle<VkSampler> sampler_;
     ShaderPipeline pipeline_;
 };

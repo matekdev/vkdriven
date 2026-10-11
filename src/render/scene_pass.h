@@ -4,6 +4,7 @@
 
 #include <glm/glm.hpp>
 
+#include "render/shadow_pass.h"
 #include "vk/shader_pipeline.h"
 
 #include <array>
@@ -23,11 +24,17 @@ struct FrameData
     glm::vec4 directionToLight;
     glm::vec4 cameraPosition;
     glm::vec4 lightRadiance;
-    glm::mat4 lightViewProjection;
+    std::array<glm::mat4, ShadowPass::cascadeCount> lightViewProjections;
+    // Per cascade: the view-space depth where it ends, and the world-space size of one of its texels.
+    glm::vec4 cascadeSplitDepths;
+    glm::vec4 cascadeTexelSizes;
     uint32_t shadowMapTextureIndex;
-    std::array<uint32_t, 3> padding{};
+    float normalOffset;
+    uint32_t showCascades;
+    uint32_t padding{};
 };
-static_assert(sizeof(FrameData) == 256);
+static_assert(ShadowPass::cascadeCount == 4, "cascadeSplitDepths and cascadeTexelSizes hold one float per cascade");
+static_assert(sizeof(FrameData) == 480);
 
 struct DrawConstants
 {
@@ -36,6 +43,7 @@ struct DrawConstants
     VkDeviceAddress transforms;
     VkDeviceAddress materials;
     uint32_t drawIndex;
+    uint32_t cascadeIndex;
 };
 
 // Draws the scene into the viewport's color and depth images, then leaves the color image ready to be sampled.

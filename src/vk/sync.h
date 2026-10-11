@@ -24,9 +24,9 @@ inline DeviceHandle<VkSemaphore> createSemaphore(VkDevice device)
     return {device, semaphore};
 }
 
-inline VkImageSubresourceRange subresourceRange(VkImageAspectFlags aspect)
+inline VkImageSubresourceRange subresourceRange(VkImageAspectFlags aspect, uint32_t layerCount = 1)
 {
-    return {.aspectMask = aspect, .levelCount = 1, .layerCount = 1};
+    return {.aspectMask = aspect, .levelCount = 1, .layerCount = layerCount};
 }
 
 inline void pipelineBarrier(VkCommandBuffer cb, std::span<const VkImageMemoryBarrier2> barriers)

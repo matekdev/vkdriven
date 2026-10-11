@@ -13,7 +13,8 @@ VSOutput main(VSInput input)
     Transform transform = constants.transforms[draw.transformIndex];
 
     VSOutput output;
-    output.Pos = mul(constants.frame->lightViewProjection, mul(transform.model, float4(input.Pos, 1.0)));
+    float4x4 lightViewProjection = constants.frame->lightViewProjections[constants.cascadeIndex];
+    output.Pos = mul(lightViewProjection, mul(transform.model, float4(input.Pos, 1.0)));
     output.UV = input.UV;
     return output;
 }

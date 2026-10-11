@@ -21,13 +21,35 @@ Image createShadowMap(const Allocator& allocator)
         .format = ShadowPass::format,
         .extent{.width = ShadowPass::size, .height = ShadowPass::size, .depth = 1},
         .mipLevels = 1,
-        .arrayLayers = 1,
+        .arrayLayers = ShadowPass::cascadeCount,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
         .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
     return Image{allocator, imageCI, VK_IMAGE_ASPECT_DEPTH_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
+}
+
+// The shadow map's own view covers every layer for sampling; each cascade renders through a view of its one layer.
+std::array<DeviceHandle<VkImageView>, ShadowPass::cascadeCount> createCascadeViews(const Device& device,
+                                                                                 const Image& shadowMap)
+{
+    std::array<DeviceHandle<VkImageView>, ShadowPass::cascadeCount> views;
+    for (uint32_t cascade = 0; cascade < ShadowPass::cascadeCount; cascade++)
+    {
+        VkImageViewCreateInfo viewCI{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                                     .image = shadowMap.handle(),
+                                     .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                                     .format = ShadowPass::format,
+                                     .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                                                       .levelCount = 1,
+                                                       .baseArrayLayer = cascade,
+                                                       .layerCount = 1}};
+        VkImageView view{VK_NULL_HANDLE};
+        chk(vkCreateImageView(device.handle(), &viewCI, nullptr, &view));
+        views[cascade] = DeviceHandle<VkImageView>{device.handle(), view};
+    }
+    return views;
 }
 
 // A comparison sampler: each lookup returns how much of the 2x2 texels around the point pass
@@ -54,7 +76,8 @@ DeviceHandle<VkSampler> createShadowSampler(const Device& device)
 
 ShadowPass::ShadowPass(const Device& device, const Allocator& allocator, const ShaderCompiler& shaderCompiler,
                        const BindlessTextures& textures, std::filesystem::path shaderPath)
-    : textures_{textures}, shadowMap_{createShadowMap(allocator)}, sampler_{createShadowSampler(device)},
+    : textures_{textures}, shadowMap_{createShadowMap(allocator)},
+      cascadeViews_{createCascadeViews(device, shadowMap_)}, sampler_{createShadowSampler(device)},
       pipeline_{device,
                 shaderCompiler,
                 std::move(shaderPath),
@@ -82,28 +105,33 @@ void ShadowPass::record(VkCommandBuffer cb, const Scene& scene, VkDeviceAddress 
                          .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
                          .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
                          .image = shadowMap_.handle(),
-                         .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)});
+                         .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT, cascadeCount)});
 
-    VkRenderingAttachmentInfo depthAttachmentInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                                                  .imageView = shadowMap_.view(),
-                                                  .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-                                                  .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                                  .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-                                                  .clearValue{.depthStencil{.depth = 0.0f, .stencil = 0}}};
-    VkRenderingInfo renderingInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                                  .renderArea{.extent = extent},
-                                  .layerCount = 1,
-                                  .pDepthAttachment = &depthAttachmentInfo};
-    vkCmdBeginRendering(cb, &renderingInfo);
+    // Each cascade is its own depth-only pass into its layer. The shader picks the cascade's light matrix
+    // from FrameData by the cascade index pushed with the draw constants.
+    for (uint32_t cascade = 0; cascade < cascadeCount; cascade++)
+    {
+        VkRenderingAttachmentInfo depthAttachmentInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                                                      .imageView = cascadeViews_[cascade].get(),
+                                                      .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                                                      .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                                      .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                                                      .clearValue{.depthStencil{.depth = 0.0f, .stencil = 0}}};
+        VkRenderingInfo renderingInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                      .renderArea{.extent = extent},
+                                      .layerCount = 1,
+                                      .pDepthAttachment = &depthAttachmentInfo};
+        vkCmdBeginRendering(cb, &renderingInfo);
 
-    setViewportAndScissor(cb, extent);
-    // Reverse-Z: away from the light is smaller depth, so the bias is negative.
-    vkCmdSetDepthBias(cb, -settings.constantBias, 0.0f, -settings.slopeBias);
+        setViewportAndScissor(cb, extent);
+        // Reverse-Z: away from the light is smaller depth, so the bias is negative.
+        vkCmdSetDepthBias(cb, -settings.constantBias, 0.0f, -settings.slopeBias);
 
-    recordSceneDraws(cb, pipeline_, textures_, scene, frameData);
-    vkCmdEndRendering(cb);
+        recordSceneDraws(cb, pipeline_, textures_, scene, frameData, cascade);
+        vkCmdEndRendering(cb);
+    }
 
-    // The scene pass reads the shadow map in its fragment shader.
+    // The scene pass reads every cascade in its fragment shader.
     pipelineBarrier(cb, {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
                          .srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                          .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
@@ -112,5 +140,5 @@ void ShadowPass::record(VkCommandBuffer cb, const Scene& scene, VkDeviceAddress 
                          .oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
                          .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                          .image = shadowMap_.handle(),
-                         .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)});
+                         .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT, cascadeCount)});
 }
