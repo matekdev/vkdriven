@@ -102,7 +102,6 @@ Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* c
 - [ ] Specular prefiltered environment map (per-mip roughness) and BRDF LUT, also in compute (*PBR → IBL → Specular IBL*)
 - [x] Shadow mapping basics: single directional shadow map, depth bias, PCF (*Shadows → Shadow Mapping*). Remember reverse-Z flips the comparison.
 - [x] **Cascaded shadow maps**: cascade splits, a layered depth image, cascade selection (*Guest Articles → Cascaded Shadow Mapping*). Beyond the tutorial: texel snapping to stop shimmering, and normal-offset bias.
-- [ ] 📝 Blog: "PBR from Blinn-Phong: what changed and why", with before/after images
 
 ### P4: GPU-driven rendering (~50h, 10 weeks). ★ The main feature
 - [ ] **Compute frustum culling** per instance → writes a compacted draw list
