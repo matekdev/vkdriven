@@ -49,7 +49,7 @@ std::expected<void, std::string> loadFonts(ImFontAtlas& fonts)
 } // namespace
 
 ImGuiLayer::ImGuiLayer(const Window& window, const Instance& instance, const Device& device,
-                       uint32_t framesInFlight, VkFormat colorFormat)
+                       VkPipelineCache pipelineCache, uint32_t framesInFlight, VkFormat colorFormat)
 {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -75,6 +75,7 @@ ImGuiLayer::ImGuiLayer(const Window& window, const Instance& instance, const Dev
         .DescriptorPoolSize = descriptorPoolSize,
         .MinImageCount = framesInFlight,
         .ImageCount = framesInFlight,
+        .PipelineCache = pipelineCache,
         .PipelineInfoMain{.PipelineRenderingCreateInfo{.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                                                         .colorAttachmentCount = 1,
                                                         .pColorAttachmentFormats = &colorFormat}},

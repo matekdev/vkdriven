@@ -2,15 +2,17 @@
 
 #include "util/expected.h"
 #include "vk/device.h"
+#include "vk/pipeline_cache.h"
 #include "vk/shader_compiler.h"
 
 #include <print>
 #include <utility>
 
 ShaderPipeline::ShaderPipeline(const Device& device, const ShaderCompiler& shaderCompiler,
-                               std::filesystem::path shaderPath, const GraphicsPipelineInfo& info)
-    : device_{device}, shaderCompiler_{shaderCompiler}, shaderPath_{std::move(shaderPath)}, info_{info},
-      pipeline_{orThrow(build())}
+                               const PipelineCache& pipelineCache, std::filesystem::path shaderPath,
+                               const GraphicsPipelineInfo& info)
+    : device_{device}, shaderCompiler_{shaderCompiler}, pipelineCache_{pipelineCache},
+      shaderPath_{std::move(shaderPath)}, info_{info}, pipeline_{orThrow(build())}
 {
 }
 
@@ -31,5 +33,5 @@ std::expected<GraphicsPipeline, std::string> ShaderPipeline::build() const
 {
     return shaderCompiler_.compile(device_, shaderPath_)
         .transform([&](const DeviceHandle<VkShaderModule>& shaderModule)
-                   { return GraphicsPipeline{device_, shaderModule.get(), info_}; });
+                   { return GraphicsPipeline{device_, pipelineCache_.handle(), shaderModule.get(), info_}; });
 }

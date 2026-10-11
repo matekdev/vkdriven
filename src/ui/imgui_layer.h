@@ -15,8 +15,8 @@ class Window;
 class ImGuiLayer
 {
   public:
-    ImGuiLayer(const Window& window, const Instance& instance, const Device& device, uint32_t framesInFlight,
-               VkFormat colorFormat);
+    ImGuiLayer(const Window& window, const Instance& instance, const Device& device, VkPipelineCache pipelineCache,
+               uint32_t framesInFlight, VkFormat colorFormat);
     ~ImGuiLayer();
 
     ImGuiLayer(const ImGuiLayer&) = delete;

@@ -73,3 +73,11 @@ void Buffer::write(std::span<const std::byte> bytes, VkDeviceSize offset)
     std::memcpy(mapped_ + offset, bytes.data(), bytes.size());
     chk(vmaFlushAllocation(allocator_, allocation_, offset, bytes.size()));
 }
+
+void Buffer::read(std::span<std::byte> bytes, VkDeviceSize offset) const
+{
+    assert(mapped_ != nullptr && "Buffer::read needs a buffer created with VMA_ALLOCATION_CREATE_MAPPED_BIT");
+    assert(offset + bytes.size() <= size_);
+    chk(vmaInvalidateAllocation(allocator_, allocation_, offset, bytes.size()));
+    std::memcpy(bytes.data(), mapped_ + offset, bytes.size());
+}

@@ -7,10 +7,11 @@
 
 #include <utility>
 
-TonemapPass::TonemapPass(const Device& device, const ShaderCompiler& shaderCompiler, const BindlessTextures& textures,
-                         std::filesystem::path shaderPath)
+TonemapPass::TonemapPass(const Device& device, const ShaderCompiler& shaderCompiler, const PipelineCache& pipelineCache,
+                         const BindlessTextures& textures, std::filesystem::path shaderPath)
     : textures_{textures}, pipeline_{device,
                                      shaderCompiler,
+                                     pipelineCache,
                                      std::move(shaderPath),
                                      {.setLayout = textures.layout(),
                                       .pushConstantSize = sizeof(TonemapConstants),

@@ -75,11 +75,13 @@ DeviceHandle<VkSampler> createShadowSampler(const Device& device)
 } // namespace
 
 ShadowPass::ShadowPass(const Device& device, const Allocator& allocator, const ShaderCompiler& shaderCompiler,
-                       const BindlessTextures& textures, std::filesystem::path shaderPath)
+                       const PipelineCache& pipelineCache, const BindlessTextures& textures,
+                       std::filesystem::path shaderPath)
     : textures_{textures}, shadowMap_{createShadowMap(allocator)},
       cascadeViews_{createCascadeViews(device, shadowMap_)}, sampler_{createShadowSampler(device)},
       pipeline_{device,
                 shaderCompiler,
+                pipelineCache,
                 std::move(shaderPath),
                 {.setLayout = textures.layout(),
                  .pushConstantSize = sizeof(DrawConstants),

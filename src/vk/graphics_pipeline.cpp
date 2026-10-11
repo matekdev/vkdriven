@@ -7,7 +7,8 @@
 #include <array>
 #include <cstdint>
 
-GraphicsPipeline::GraphicsPipeline(const Device& device, VkShaderModule shaderModule, const GraphicsPipelineInfo& info)
+GraphicsPipeline::GraphicsPipeline(const Device& device, VkPipelineCache pipelineCache, VkShaderModule shaderModule,
+                                   const GraphicsPipelineInfo& info)
 {
     VkPushConstantRange pushConstantRange{.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                           .size = info.pushConstantSize};
@@ -94,6 +95,6 @@ GraphicsPipeline::GraphicsPipeline(const Device& device, VkShaderModule shaderMo
                                             .pDynamicState = &dynamicState,
                                             .layout = layout_.get()};
     VkPipeline pipeline{VK_NULL_HANDLE};
-    chk(vkCreateGraphicsPipelines(device.handle(), VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline));
+    chk(vkCreateGraphicsPipelines(device.handle(), pipelineCache, 1, &pipelineCI, nullptr, &pipeline));
     pipeline_ = DeviceHandle<VkPipeline>{device.handle(), pipeline};
 }

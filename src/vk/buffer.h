@@ -30,6 +30,13 @@ class Buffer
         write(std::as_bytes(std::span{data}), offset);
     }
 
+    void read(std::span<std::byte> bytes, VkDeviceSize offset = 0) const;
+
+    template <std::ranges::contiguous_range Range> void read(Range& data, VkDeviceSize offset = 0) const
+    {
+        read(std::as_writable_bytes(std::span{data}), offset);
+    }
+
     [[nodiscard]] VkBuffer handle() const
     {
         return buffer_;
