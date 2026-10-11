@@ -2,7 +2,7 @@
 
 A Vulkan 1.3 renderer, built up one feature at a time.
 
-![vkdriven rendering Sponza with shadows](docs/images/screenshot.png)
+More details, screenshots and write-ups are on the [project page](https://matek.dev/projects/vkdriven/).
 
 ## Status
 
@@ -25,13 +25,3 @@ cmake --preset debug
 cmake --build --preset debug
 build\debug\bin\vkdriven.exe
 ```
-
-## Planned features
-
-- Vulkan 1.3 with dynamic rendering, synchronization2, buffer device address and bindless descriptors
-- Slang shaders compiled to SPIR-V at runtime
-- glTF 2.0 scenes with textures and GPU-generated mipmaps
-- PBR lighting, image-based lighting and cascaded shadow maps
-- GPU-driven rendering: compute culling, one indirect draw call for the whole scene, two-pass Hi-Z occlusion culling
-- Meshlets with task/mesh shaders, plus a fallback path without mesh shaders
-- Per-pass GPU timings, with profiling write-ups
