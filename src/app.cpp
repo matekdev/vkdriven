@@ -17,6 +17,7 @@ namespace
 
 constexpr const char* scenePath = "assets/Sponza/Sponza.gltf";
 constexpr const char* pipelineCachePath = "pipeline_cache.bin";
+constexpr const char* environmentPath = "assets/environment/kloofendal_48d_partly_cloudy_puresky_2k.hdr";
 
 } // namespace
 
@@ -26,11 +27,13 @@ App::App()
       swapchain_{device_, surface_, window_}, commandPool_{device_},
       frames_{device_, allocator_, commandPool_, sizeof(FrameData)},
       scene_{orThrow(Scene::loadGltf(device_, allocator_, commandPool_, scenePath))},
-      bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size()) + 2},
+      environment_{orThrow(Texture::loadHdr(device_, allocator_, commandPool_, environmentPath))},
+      bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size()) + 3},
       pipelineCache_{device_, pipelineCachePath}, shaderDirectory_{VKDRIVEN_SHADER_DIR},
       shadowPass_{device_, allocator_, shaderCompiler_, pipelineCache_, bindlessTextures_,
                   shaderDirectory_ / "shadow.slang"},
-      scenePass_{device_, shaderCompiler_, pipelineCache_, bindlessTextures_, shaderDirectory_ / "scene.slang"},
+      scenePass_{device_, shaderCompiler_, pipelineCache_, bindlessTextures_, shaderDirectory_ / "scene.slang",
+                 shaderDirectory_ / "skybox.slang"},
       tonemapPass_{device_, shaderCompiler_, pipelineCache_, bindlessTextures_, shaderDirectory_ / "tonemap.slang"},
       shaderWatcher_{shaderDirectory_},
       imgui_{window_, instance_, device_, pipelineCache_.handle(), FrameResources::maxFramesInFlight,
@@ -44,6 +47,9 @@ App::App()
 
     const VkDescriptorImageInfo shadowMapInfo = shadowPass_.descriptorInfo();
     bindlessTextures_.write(std::span{&shadowMapInfo, 1}, shadowMapTextureIndex());
+
+    const VkDescriptorImageInfo environmentInfo = environment_.descriptorInfo();
+    bindlessTextures_.write(std::span{&environmentInfo, 1}, environmentTextureIndex());
 
     std::println("Loaded {}: {} meshes, {} primitives, {} vertices, {} indices, {} draws, {} transforms, {} textures",
                  scenePath, scene_.meshes().size(), scene_.primitives().size(), scene_.vertexCount(),
@@ -192,7 +198,8 @@ void App::updateFrameData(Frame& frame) const
                               .cascadeTexelSizes = cascades.texelSizes,
                               .shadowMapTextureIndex = shadowMapTextureIndex(),
                               .normalOffset = shadowSettings_.normalOffset,
-                              .showCascades = shadowSettings_.showCascades ? 1u : 0u};
+                              .showCascades = shadowSettings_.showCascades ? 1u : 0u,
+                              .environmentTextureIndex = environmentTextureIndex()};
     frame.shaderData.write(std::span{&frameData, 1});
 }
 

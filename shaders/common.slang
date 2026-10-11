@@ -21,7 +21,7 @@ public struct FrameData
     public uint shadowMapTextureIndex;
     public float normalOffset;
     public uint showCascades;
-    public uint padding;
+    public uint environmentTextureIndex;
 };
 
 public struct Material

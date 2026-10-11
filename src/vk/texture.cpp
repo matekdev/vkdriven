@@ -3,6 +3,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#include <glm/gtc/packing.hpp>
+
 #include "vk/allocator.h"
 #include "vk/buffer.h"
 #include "vk/check.h"
@@ -25,6 +27,11 @@ namespace
 struct StbiImageDeleter
 {
     void operator()(stbi_uc* pixels) const
+    {
+        stbi_image_free(pixels);
+    }
+
+    void operator()(float* pixels) const
     {
         stbi_image_free(pixels);
     }
@@ -76,6 +83,25 @@ std::expected<Texture, std::string> Texture::loadImage(const Device& device, con
     const auto pixelBytes = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
     return fromPixels(device, allocator, commandPool, static_cast<uint32_t>(width), static_cast<uint32_t>(height),
                       std::as_bytes(std::span{pixels.get(), pixelBytes}), format);
+}
+
+std::expected<Texture, std::string> Texture::loadHdr(const Device& device, const Allocator& allocator,
+                                                     const CommandPool& commandPool, const std::filesystem::path& path)
+{
+    int width{0};
+    int height{0};
+    const std::unique_ptr<float, StbiImageDeleter> pixels{
+        stbi_loadf(path.string().c_str(), &width, &height, nullptr, STBI_rgb_alpha)};
+    if (!pixels)
+        return std::unexpected{std::format("Failed to load HDR image {}: {}", path.string(), stbi_failure_reason())};
+
+    const auto channelCount = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
+    std::vector<uint16_t> halfPixels(channelCount);
+    std::ranges::transform(std::span{pixels.get(), channelCount}, halfPixels.begin(),
+                           [](float channel) { return glm::packHalf1x16(channel); });
+
+    return fromPixels(device, allocator, commandPool, static_cast<uint32_t>(width), static_cast<uint32_t>(height),
+                      std::as_bytes(std::span{halfPixels}), VK_FORMAT_R16G16B16A16_SFLOAT);
 }
 
 std::expected<Texture, std::string> Texture::fromPixels(const Device& device, const Allocator& allocator,

@@ -24,6 +24,7 @@
 #include "vk/shader_compiler.h"
 #include "vk/surface.h"
 #include "vk/swapchain.h"
+#include "vk/texture.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -61,6 +62,11 @@ class App
         return hdrTextureIndex() + 1;
     }
 
+    [[nodiscard]] uint32_t environmentTextureIndex() const
+    {
+        return shadowMapTextureIndex() + 1;
+    }
+
     Window window_;
     Instance instance_;
     Surface surface_;
@@ -70,6 +76,7 @@ class App
     CommandPool commandPool_;
     FrameResources frames_;
     Scene scene_;
+    Texture environment_;
     BindlessTextures bindlessTextures_;
     ShaderCompiler shaderCompiler_;
     PipelineCache pipelineCache_;

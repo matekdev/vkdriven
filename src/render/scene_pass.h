@@ -32,7 +32,7 @@ struct FrameData
     uint32_t shadowMapTextureIndex;
     float normalOffset;
     uint32_t showCascades;
-    uint32_t padding{};
+    uint32_t environmentTextureIndex;
 };
 static_assert(ShadowPass::cascadeCount == 4, "cascadeSplitDepths and cascadeTexelSizes hold one float per cascade");
 static_assert(sizeof(FrameData) == 480);
@@ -53,12 +53,14 @@ class ScenePass
 {
   public:
     ScenePass(const Device& device, const ShaderCompiler& shaderCompiler, const PipelineCache& pipelineCache,
-              const BindlessTextures& textures, std::filesystem::path shaderPath);
+              const BindlessTextures& textures, std::filesystem::path shaderPath,
+              std::filesystem::path skyboxShaderPath);
 
-    // Keeps the current pipeline if the shader fails to compile.
+    // Keeps the current pipelines if a shader fails to compile.
     void reloadShaders()
     {
         pipeline_.reload();
+        skyboxPipeline_.reload();
     }
 
     void record(VkCommandBuffer cb, const ViewportTarget& target, const Scene& scene, VkDeviceAddress frameData) const;
@@ -66,4 +68,5 @@ class ScenePass
   private:
     const BindlessTextures& textures_;
     ShaderPipeline pipeline_;
+    ShaderPipeline skyboxPipeline_;
 };
