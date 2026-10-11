@@ -11,7 +11,8 @@
 #include <utility>
 
 ScenePass::ScenePass(const Device& device, const ShaderCompiler& shaderCompiler, const PipelineCache& pipelineCache,
-                     const BindlessTextures& textures, std::filesystem::path shaderPath)
+                     const BindlessTextures& textures, std::filesystem::path shaderPath,
+                     std::filesystem::path skyboxShaderPath)
     : textures_{textures}, pipeline_{device,
                                      shaderCompiler,
                                      pipelineCache,
@@ -19,7 +20,16 @@ ScenePass::ScenePass(const Device& device, const ShaderCompiler& shaderCompiler,
                                      {.setLayout = textures.layout(),
                                       .pushConstantSize = sizeof(DrawConstants),
                                       .colorFormat = ViewportTarget::hdrFormat,
-                                      .depthFormat = device.depthFormat()}}
+                                      .depthFormat = device.depthFormat()}},
+      skyboxPipeline_{device,
+                      shaderCompiler,
+                      pipelineCache,
+                      std::move(skyboxShaderPath),
+                      {.setLayout = textures.layout(),
+                       .pushConstantSize = sizeof(DrawConstants),
+                       .colorFormat = ViewportTarget::hdrFormat,
+                       .depthFormat = device.depthFormat(),
+                       .vertexInput = VertexInput::None}}
 {
 }
 
@@ -77,6 +87,17 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
     setViewportAndScissor(cb, extent);
 
     recordSceneDraws(cb, pipeline_, textures_, scene, frameData);
+
+    // After the scene, so the depth test skips every pixel the geometry already covers.
+    vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline_.handle());
+    const VkDescriptorSet textureSet = textures_.set();
+    vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline_.layout(), 0, 1, &textureSet, 0,
+                            nullptr);
+    const DrawConstants constants{.frame = frameData};
+    vkCmdPushConstants(cb, skyboxPipeline_.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(DrawConstants), &constants);
+    vkCmdDraw(cb, 3, 1, 0, 0);
+
     vkCmdEndRendering(cb);
 
     pipelineBarrier(cb, {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,

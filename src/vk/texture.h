@@ -24,7 +24,13 @@ class Texture
                                                          const CommandPool& commandPool,
                                                          const std::filesystem::path& path, VkFormat format);
 
-    // Uploads tightly packed RGBA8 pixels as mip 0 and blits each mip from the one above it.
+    // Decodes a Radiance .hdr with stb_image into R16G16B16A16_SFLOAT, keeping values above 1.0,
+    // and generates the full mip chain on the GPU.
+    static std::expected<Texture, std::string> loadHdr(const Device& device, const Allocator& allocator,
+                                                       const CommandPool& commandPool,
+                                                       const std::filesystem::path& path);
+
+    // Uploads tightly packed pixels of the given format as mip 0 and blits each mip from the one above it.
     static std::expected<Texture, std::string> fromPixels(const Device& device, const Allocator& allocator,
                                                           const CommandPool& commandPool, uint32_t width,
                                                           uint32_t height, std::span<const std::byte> pixels,
