@@ -103,7 +103,8 @@ Device::Device(const Instance& instance, const Surface& surface)
                                     .queueCount = 1,
                                     .pQueuePriorities = &queuePriority};
 
-    const auto deviceExtensions = std::to_array<const char*>({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
+    const auto deviceExtensions =
+        std::to_array<const char*>({VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME});
 
     VkPhysicalDeviceVulkan12Features enabledVk12Features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
                                                          .descriptorIndexing = true,

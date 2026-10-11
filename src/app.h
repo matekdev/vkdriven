@@ -6,6 +6,7 @@
 
 #include "platform/file_watcher.h"
 #include "platform/window.h"
+#include "render/image_based_lighting.h"
 #include "render/scene_pass.h"
 #include "render/shadow_pass.h"
 #include "render/tonemap_pass.h"
@@ -24,7 +25,6 @@
 #include "vk/shader_compiler.h"
 #include "vk/surface.h"
 #include "vk/swapchain.h"
-#include "vk/texture.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -67,6 +67,11 @@ class App
         return shadowMapTextureIndex() + 1;
     }
 
+    [[nodiscard]] uint32_t irradianceTextureIndex() const
+    {
+        return environmentTextureIndex() + 1;
+    }
+
     Window window_;
     Instance instance_;
     Surface surface_;
@@ -76,11 +81,11 @@ class App
     CommandPool commandPool_;
     FrameResources frames_;
     Scene scene_;
-    Texture environment_;
     BindlessTextures bindlessTextures_;
     ShaderCompiler shaderCompiler_;
     PipelineCache pipelineCache_;
     std::filesystem::path shaderDirectory_;
+    ImageBasedLighting imageBasedLighting_;
     ShadowPass shadowPass_;
     ScenePass scenePass_;
     TonemapPass tonemapPass_;
@@ -92,6 +97,7 @@ class App
     DirectionalLight light_;
     ShadowSettings shadowSettings_;
     TonemapSettings tonemapSettings_;
+    EnvironmentSettings environmentSettings_;
     glm::vec2 mouseDelta_{};
     bool viewportHovered_{false};
 

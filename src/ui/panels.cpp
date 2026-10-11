@@ -2,6 +2,7 @@
 
 #include <IconsFontAwesome6.h>
 
+#include "render/image_based_lighting.h"
 #include "render/shadow_pass.h"
 #include "render/tonemap_pass.h"
 #include "scene/light.h"
@@ -81,5 +82,13 @@ void drawTonemapPanel(TonemapSettings& settings)
     if (ImGui::Combo("Tonemapper", &tonemapper, tonemapperNames.data(), static_cast<int>(tonemapperNames.size())))
         settings.tonemapper = static_cast<Tonemapper>(tonemapper);
     ImGui::SliderFloat("Exposure", &settings.exposure, 0.01f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+    ImGui::End();
+}
+
+void drawEnvironmentPanel(EnvironmentSettings& settings)
+{
+    ImGui::Begin(ICON_FA_CLOUD_SUN " Environment###Environment");
+    ImGui::SliderFloat("Intensity", &settings.intensity, 0.0f, 10.0f, "%.2f");
+    ImGui::Checkbox("Show irradiance as sky", &settings.showIrradiance);
     ImGui::End();
 }

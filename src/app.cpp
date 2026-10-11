@@ -27,9 +27,10 @@ App::App()
       swapchain_{device_, surface_, window_}, commandPool_{device_},
       frames_{device_, allocator_, commandPool_, sizeof(FrameData)},
       scene_{orThrow(Scene::loadGltf(device_, allocator_, commandPool_, scenePath))},
-      environment_{orThrow(Texture::loadHdr(device_, allocator_, commandPool_, environmentPath))},
-      bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size()) + 3},
+      bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size()) + 4},
       pipelineCache_{device_, pipelineCachePath}, shaderDirectory_{VKDRIVEN_SHADER_DIR},
+      imageBasedLighting_{device_, allocator_, commandPool_, shaderCompiler_, pipelineCache_, environmentPath,
+                          shaderDirectory_},
       shadowPass_{device_, allocator_, shaderCompiler_, pipelineCache_, bindlessTextures_,
                   shaderDirectory_ / "shadow.slang"},
       scenePass_{device_, shaderCompiler_, pipelineCache_, bindlessTextures_, shaderDirectory_ / "scene.slang",
@@ -48,8 +49,11 @@ App::App()
     const VkDescriptorImageInfo shadowMapInfo = shadowPass_.descriptorInfo();
     bindlessTextures_.write(std::span{&shadowMapInfo, 1}, shadowMapTextureIndex());
 
-    const VkDescriptorImageInfo environmentInfo = environment_.descriptorInfo();
+    const VkDescriptorImageInfo environmentInfo = imageBasedLighting_.environmentDescriptorInfo();
     bindlessTextures_.write(std::span{&environmentInfo, 1}, environmentTextureIndex());
+
+    const VkDescriptorImageInfo irradianceInfo = imageBasedLighting_.irradianceDescriptorInfo();
+    bindlessTextures_.write(std::span{&irradianceInfo, 1}, irradianceTextureIndex());
 
     std::println("Loaded {}: {} meshes, {} primitives, {} vertices, {} indices, {} draws, {} transforms, {} textures",
                  scenePath, scene_.meshes().size(), scene_.primitives().size(), scene_.vertexCount(),
@@ -129,6 +133,7 @@ void App::drawUi()
     drawLightPanel(light_);
     drawShadowPanel(shadowSettings_);
     drawTonemapPanel(tonemapSettings_);
+    drawEnvironmentPanel(environmentSettings_);
 }
 
 void App::drawFrame()
@@ -199,7 +204,10 @@ void App::updateFrameData(Frame& frame) const
                               .shadowMapTextureIndex = shadowMapTextureIndex(),
                               .normalOffset = shadowSettings_.normalOffset,
                               .showCascades = shadowSettings_.showCascades ? 1u : 0u,
-                              .environmentTextureIndex = environmentTextureIndex()};
+                              .environmentTextureIndex = environmentTextureIndex(),
+                              .irradianceTextureIndex = irradianceTextureIndex(),
+                              .showIrradiance = environmentSettings_.showIrradiance ? 1u : 0u,
+                              .environmentIntensity = environmentSettings_.intensity};
     frame.shaderData.write(std::span{&frameData, 1});
 }
 

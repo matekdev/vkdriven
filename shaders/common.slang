@@ -22,6 +22,9 @@ public struct FrameData
     public float normalOffset;
     public uint showCascades;
     public uint environmentTextureIndex;
+    public uint irradianceTextureIndex;
+    public uint showIrradiance;
+    public float environmentIntensity;
 };
 
 public struct Material
@@ -63,3 +66,5 @@ public struct DrawConstants
 [[vk::push_constant]] public DrawConstants constants;
 
 [[vk::binding(0, 0)]] public Sampler2D textures[];
+// The same bindless array viewed as cubemaps: index it only at slots that hold a cube view.
+[[vk::binding(0, 0)]] public SamplerCube cubeTextures[];

@@ -98,7 +98,7 @@ Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* c
 - [x] Cook-Torrance BRDF: GGX NDF, Smith geometry term, Schlick Fresnel. Material gains metallic/roughness factors and the glTF metallic-roughness texture (blue = metallic, green = roughness); `FrameData` gains camera position and light color × intensity (*PBR → Lighting*)
 - [x] Normal mapping with the glTF `TANGENT` attribute (Sponza ships it) and a flat-normal default texture (*Normal Mapping*)
 - [x] Compute pipelines and a `VkPipelineCache` saved to disk (needed for IBL below; not in the tutorial)
-- [ ] Image-based lighting: equirect→cubemap and diffuse irradiance convolution (*PBR → IBL → Diffuse irradiance*). The tutorial renders each cubemap face with a framebuffer; do it in a **compute shader** writing to a cube storage image instead.
+- [x] Image-based lighting: equirect→cubemap and diffuse irradiance convolution (*PBR → IBL → Diffuse irradiance*). The tutorial renders each cubemap face with a framebuffer; do it in a **compute shader** writing to a cube storage image instead.
 - [ ] Specular prefiltered environment map (per-mip roughness) and BRDF LUT, also in compute (*PBR → IBL → Specular IBL*)
 - [x] Shadow mapping basics: single directional shadow map, depth bias, PCF (*Shadows → Shadow Mapping*). Remember reverse-Z flips the comparison.
 - [x] **Cascaded shadow maps**: cascade splits, a layered depth image, cascade selection (*Guest Articles → Cascaded Shadow Mapping*). Beyond the tutorial: texel snapping to stop shimmering, and normal-offset bias.

@@ -10,6 +10,7 @@
 #include "vk/check.h"
 #include "vk/command_pool.h"
 #include "vk/device.h"
+#include "vk/mip_chain.h"
 #include "vk/sync.h"
 
 #include <algorithm>
@@ -40,13 +41,6 @@ struct StbiImageDeleter
 VkImageSubresourceRange mipRange(uint32_t baseMip, uint32_t mipCount)
 {
     return {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = baseMip, .levelCount = mipCount, .layerCount = 1};
-}
-
-VkOffset3D mipExtent(uint32_t width, uint32_t height, uint32_t mip)
-{
-    return {.x = static_cast<int32_t>(std::max(width >> mip, 1u)),
-            .y = static_cast<int32_t>(std::max(height >> mip, 1u)),
-            .z = 1};
 }
 
 DeviceHandle<VkSampler> createSampler(const Device& device, uint32_t mipLevels)
@@ -95,10 +89,13 @@ std::expected<Texture, std::string> Texture::loadHdr(const Device& device, const
     if (!pixels)
         return std::unexpected{std::format("Failed to load HDR image {}: {}", path.string(), stbi_failure_reason())};
 
+    // The sun in an HDR sky can be brighter than the largest half float. Clamping keeps it finite: as infinity it
+    // would spread through mip blits and turn every sample of it into NaN.
+    static constexpr float maxHalf = 65504.0f;
     const auto channelCount = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
     std::vector<uint16_t> halfPixels(channelCount);
     std::ranges::transform(std::span{pixels.get(), channelCount}, halfPixels.begin(),
-                           [](float channel) { return glm::packHalf1x16(channel); });
+                           [](float channel) { return glm::packHalf1x16(std::min(channel, maxHalf)); });
 
     return fromPixels(device, allocator, commandPool, static_cast<uint32_t>(width), static_cast<uint32_t>(height),
                       std::as_bytes(std::span{halfPixels}), VK_FORMAT_R16G16B16A16_SFLOAT);
@@ -153,51 +150,7 @@ std::expected<Texture, std::string> Texture::fromPixels(const Device& device, co
             vkCmdCopyBufferToImage(cb, stagingBuffer.handle(), image.handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
                                    &copyRegion);
 
-            for (uint32_t mip = 1; mip < mipLevels; mip++)
-            {
-                // The previous mip was just written (by the copy or the last blit); it becomes the blit source.
-                pipelineBarrier(cb, {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-                                     .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                     .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                                     .dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                     .dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT,
-                                     .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                     .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                     .image = image.handle(),
-                                     .subresourceRange = mipRange(mip - 1, 1)});
-
-                const VkImageBlit blit{
-                    .srcSubresource{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = mip - 1, .layerCount = 1},
-                    .srcOffsets{{}, mipExtent(width, height, mip - 1)},
-                    .dstSubresource{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = mip, .layerCount = 1},
-                    .dstOffsets{{}, mipExtent(width, height, mip)}};
-                vkCmdBlitImage(cb, image.handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image.handle(),
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
-            }
-
-            // Every mip but the last was a blit source; the last was only ever written.
-            std::vector<VkImageMemoryBarrier2> toShaderRead{{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-                                                             .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                                             .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                                                             .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-                                                             .dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-                                                             .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                             .newLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
-                                                             .image = image.handle(),
-                                                             .subresourceRange = mipRange(mipLevels - 1, 1)}};
-            if (mipLevels > 1)
-            {
-                toShaderRead.push_back({.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-                                        .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                        .srcAccessMask = VK_ACCESS_2_NONE,
-                                        .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-                                        .dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-                                        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                        .newLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
-                                        .image = image.handle(),
-                                        .subresourceRange = mipRange(0, mipLevels - 1)});
-            }
-            pipelineBarrier(cb, toShaderRead);
+            recordMipChain(cb, image.handle(), {.width = width, .height = height}, mipLevels);
         });
 
     return Texture{std::move(image), createSampler(device, mipLevels)};

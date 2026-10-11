@@ -33,9 +33,12 @@ struct FrameData
     float normalOffset;
     uint32_t showCascades;
     uint32_t environmentTextureIndex;
+    uint32_t irradianceTextureIndex;
+    uint32_t showIrradiance;
+    float environmentIntensity;
 };
 static_assert(ShadowPass::cascadeCount == 4, "cascadeSplitDepths and cascadeTexelSizes hold one float per cascade");
-static_assert(sizeof(FrameData) == 480);
+static_assert(sizeof(FrameData) == 492);
 
 struct DrawConstants
 {

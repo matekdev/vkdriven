@@ -52,6 +52,8 @@ add_executable(vkdriven
     src/platform/file_watcher.h
     src/platform/window.cpp
     src/platform/window.h
+    src/render/image_based_lighting.cpp
+    src/render/image_based_lighting.h
     src/render/scene_draws.cpp
     src/render/scene_draws.h
     src/render/scene_pass.cpp
@@ -101,6 +103,8 @@ add_executable(vkdriven
     src/vk/image.h
     src/vk/instance.cpp
     src/vk/instance.h
+    src/vk/mip_chain.cpp
+    src/vk/mip_chain.h
     src/vk/pipeline_cache.cpp
     src/vk/pipeline_cache.h
     src/vk/shader_compiler.cpp

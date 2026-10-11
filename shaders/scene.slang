@@ -32,7 +32,6 @@ VSOutput main(VSInput input)
     return output;
 }
 
-static const float ambientStrength = 0.03;
 static const float minRoughness = 0.04;
 
 // Moves the normal map's tangent-space normal into world space with the TBN basis.
@@ -135,6 +134,13 @@ float3 FresnelSchlick(float cosTheta, float3 F0)
     return F0 + (1.0 - F0) * pow(saturate(1.0 - cosTheta), 5.0);
 }
 
+// Fresnel for light from the whole environment rather than one direction: there's no single half vector,
+// so N·V stands in for it, and rough surfaces get less of the bright grazing-angle reflection.
+float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
+{
+    return F0 + (max(float3(1.0 - roughness), F0) - F0) * pow(saturate(1.0 - cosTheta), 5.0);
+}
+
 // diffuse = kD * albedo / PI
 float3 Diffuse(float3 F, float3 albedo, float metallic)
 {
@@ -190,7 +196,13 @@ float4 main(VSOutput input)
     // The vertex normal, not the normal-mapped one: the offset has to follow the geometry the shadow map stored.
     float3 Lo = (diffuse + specular) * radiance * NdotL * Shadow(input.WorldPos, vertexNormal, cascade);
 
-    float3 ambient = ambientStrength * albedo;
+    // Diffuse IBL: the irradiance map already holds the cosine-weighted light from the whole hemisphere
+    // around N, so one lookup replaces integrating the environment here. As with the sun, only the part
+    // that isn't reflected as specular (kD) is diffused, and metals don't diffuse at all.
+    float3 kS = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+    float3 kD = (1.0 - kS) * (1.0 - metallic);
+    float3 irradiance = cubeTextures[constants.frame->irradianceTextureIndex].SampleLevel(N, 0.0).rgb;
+    float3 ambient = kD * irradiance * albedo * constants.frame->environmentIntensity;
     float3 color = ambient + Lo;
     if (constants.frame->showCascades != 0 && cascade < cascadeCount)
         color *= cascadeColors[cascade];
