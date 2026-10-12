@@ -8,9 +8,12 @@
 #include "vk/check.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <limits>
 #include <print>
 #include <span>
+#include <vector>
 
 namespace
 {
@@ -22,7 +25,7 @@ constexpr const char* environmentPath = "assets/environment/kloofendal_48d_partl
 } // namespace
 
 App::App()
-    : window_{"vkdriven", 1280, 720}, instance_{"vkdriven", window_.requiredInstanceExtensions()},
+    : window_{"vkdriven", 1920, 1080}, instance_{"vkdriven", window_.requiredInstanceExtensions()},
       surface_{instance_, window_}, device_{instance_, surface_}, allocator_{instance_, device_},
       swapchain_{device_, surface_, window_}, commandPool_{device_},
       frames_{device_, allocator_, commandPool_, sizeof(FrameData)},
@@ -61,10 +64,23 @@ App::~App()
     device_.waitIdle();
 }
 
-void App::run()
+void App::run(RunMode mode)
 {
+    // Gives the viewport panel a few frames to settle on its size before the benchmark records it.
+    constexpr uint32_t benchmarkStartFrame = 10;
+    uint32_t frameCount = 0;
+
     while (true)
     {
+        if (mode == RunMode::Benchmark)
+        {
+            if (frameCount == benchmarkStartFrame)
+                benchmark_.start();
+            else if (frameCount > benchmarkStartFrame && !benchmark_.running())
+                return;
+            frameCount++;
+        }
+
         if (!handleEvents())
             return;
 
@@ -86,11 +102,13 @@ void App::run()
             updateSwapchain_ = false;
         }
 
-        if (viewport_.needsResize(requestedViewportExtent_))
+        // The benchmark always renders at the same size, so results don't depend on the window or panel layout.
+        const VkExtent2D viewportExtent = benchmark_.running() ? Benchmark::renderExtent : requestedViewportExtent_;
+        if (viewport_.needsResize(viewportExtent))
         {
             // Earlier frames may still be rendering into or sampling the old images.
             device_.waitIdle();
-            viewport_.resize(requestedViewportExtent_);
+            viewport_.resize(viewportExtent);
 
             const VkDescriptorImageInfo hdrInfo = viewport_.hdrDescriptorInfo();
             bindlessTextures_.write(std::span{&hdrInfo, 1}, hdrTextureIndex());
@@ -98,7 +116,15 @@ void App::run()
 
         imgui_.beginFrame();
         drawUi();
-        camera_.update(window_, viewportHovered_, mouseDelta_);
+        if (benchmark_.running())
+        {
+            const BenchmarkView& view = benchmark_.currentView();
+            camera_.setPose(view.position, view.yawRadians, view.pitchRadians);
+        }
+        else
+        {
+            camera_.update(window_, viewportHovered_, mouseDelta_);
+        }
         imgui_.endFrame();
         drawFrame();
     }
@@ -125,7 +151,7 @@ void App::drawUi()
     if (viewportPanel.requestedExtent)
         requestedViewportExtent_ = *viewportPanel.requestedExtent;
     viewportHovered_ = viewportPanel.hovered;
-    drawStatsPanel(scene_, viewport_);
+    drawStatsPanel(scene_, viewport_, camera_, gpuTimings_, cpuRecordMilliseconds_, benchmark_);
     drawLightPanel(light_);
     drawShadowPanel(shadowSettings_);
     drawTonemapPanel(tonemapSettings_);
@@ -137,6 +163,14 @@ void App::drawFrame()
 
     // Wait on fence
     chk(vkWaitForFences(device_.handle(), 1, frame.inFlight.ptr(), VK_TRUE, std::numeric_limits<uint64_t>::max()));
+
+    // The fence guarantees this frame's last timestamps are written; read them before recording resets the queries.
+    // A running average keeps the numbers readable in the stats panel.
+    const std::vector<GpuTiming> latestTimings = frame.gpuTimer.read();
+    if (latestTimings.size() != gpuTimings_.size())
+        gpuTimings_ = latestTimings;
+    for (size_t i = 0; i < latestTimings.size(); i++)
+        gpuTimings_[i].milliseconds = std::lerp(gpuTimings_[i].milliseconds, latestTimings[i].milliseconds, 0.05f);
 
     // Acquire next image
     const auto [acquireStatus, imageIndex] = swapchain_.acquireNextImage(frame.imageAcquired.get());
@@ -151,8 +185,13 @@ void App::drawFrame()
     }
     chk(vkResetFences(device_.handle(), 1, frame.inFlight.ptr()));
 
+    const auto recordStart = std::chrono::steady_clock::now();
     updateFrameData(frame);
     recordCommandBuffer(frame.commandBuffer, imageIndex, frame);
+    const float cpuRecordMilliseconds =
+        std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - recordStart).count();
+    cpuRecordMilliseconds_ = std::lerp(cpuRecordMilliseconds_, cpuRecordMilliseconds, 0.05f);
+    benchmark_.addFrame(latestTimings, cpuRecordMilliseconds);
 
     // Submit command buffer
     VkSemaphoreSubmitInfo waitSemaphoreInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
@@ -203,17 +242,34 @@ void App::updateFrameData(Frame& frame) const
     frame.shaderData.write(std::span{&frameData, 1});
 }
 
-void App::recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, const Frame& frame) const
+void App::recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, Frame& frame) const
 {
     chk(vkResetCommandBuffer(cb, 0));
     VkCommandBufferBeginInfo cbBI{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
                                   .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
     chk(vkBeginCommandBuffer(cb, &cbBI));
 
+    GpuTimer& timer = frame.gpuTimer;
+    timer.reset(cb);
+    const uint32_t frameScope = timer.begin(cb, "Frame");
+
+    const uint32_t shadowScope = timer.begin(cb, "Shadows");
     shadowPass_.record(cb, scene_, frame.shaderData.deviceAddress(), shadowSettings_);
+    timer.end(cb, shadowScope);
+
+    const uint32_t sceneScope = timer.begin(cb, "Scene");
     scenePass_.record(cb, viewport_, scene_, frame.shaderData.deviceAddress());
+    timer.end(cb, sceneScope);
+
+    const uint32_t tonemapScope = timer.begin(cb, "Tonemap");
     tonemapPass_.record(cb, viewport_, hdrTextureIndex(), tonemapSettings_);
+    timer.end(cb, tonemapScope);
+
+    const uint32_t imguiScope = timer.begin(cb, "ImGui");
     imgui_.record(cb, swapchain_, imageIndex);
+    timer.end(cb, imguiScope);
+
+    timer.end(cb, frameScope);
 
     chk(vkEndCommandBuffer(cb));
 }

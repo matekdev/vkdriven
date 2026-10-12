@@ -37,7 +37,6 @@ A **renderer**: it loads glTF models and scenes and draws them with modern Vulka
 ## 3. Development rules
 
 - [ ] **Short milestones.** Each phase is 3–6 weeks. If a milestone is heading past 8 weeks, cut scope.
-- [ ] **Each milestone ends with 3 things:** a git tag, a README screenshot or gif, and a short blog post.
 - [ ] **Get it working, then generalize.** Hardcode the first version. Only refactor once something is needed a second time.
 - [ ] **Keep the build green.** CI builds on every push. The validation layers should report zero errors, always.
 - [ ] **When stuck, write a smaller test first.** Get the technique working in isolation before integrating it.

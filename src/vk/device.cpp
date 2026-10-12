@@ -96,6 +96,13 @@ Device::Device(const Instance& instance, const Surface& surface)
     vkGetPhysicalDeviceProperties(physical_, &properties);
     std::println("Using GPU: {} ({}, vendor: {}, device: {})", properties.deviceName,
                  string_VkPhysicalDeviceType(properties.deviceType), properties.vendorID, properties.deviceID);
+    timestampPeriod_ = properties.limits.timestampPeriod;
+
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_, &queueFamilyCount, nullptr);
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_, &queueFamilyCount, queueFamilies.data());
+    timestampValidBits_ = queueFamilies[queueFamily_].timestampValidBits;
 
     const float queuePriority = 1.0f;
     VkDeviceQueueCreateInfo queueCI{.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,

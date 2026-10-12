@@ -2,11 +2,14 @@
 
 #include <IconsFontAwesome6.h>
 
+#include "profiling/benchmark.h"
 #include "render/shadow_pass.h"
 #include "render/tonemap_pass.h"
+#include "scene/camera.h"
 #include "scene/light.h"
 #include "scene/scene.h"
 #include "ui/viewport_target.h"
+#include "vk/gpu_timer.h"
 
 #include <algorithm>
 #include <array>
@@ -24,8 +27,12 @@ ViewportPanelState drawViewportPanel(ImGuiID dockspace, const ViewportTarget& vi
         const ImVec2 available = ImGui::GetContentRegionAvail();
         state.requestedExtent = VkExtent2D{.width = static_cast<uint32_t>(std::max(available.x, 0.0f)),
                                            .height = static_cast<uint32_t>(std::max(available.y, 0.0f))};
+        // Normally the image matches the panel. When it's rendered at a fixed size instead (the benchmark), it's
+        // scaled to fit and keeps its aspect ratio.
         const VkExtent2D extent = viewport.extent();
-        ImGui::Image(viewport.texture(), ImVec2{static_cast<float>(extent.width), static_cast<float>(extent.height)});
+        const ImVec2 imageSize{static_cast<float>(extent.width), static_cast<float>(extent.height)};
+        const float scale = std::min({available.x / imageSize.x, available.y / imageSize.y, 1.0f});
+        ImGui::Image(viewport.texture(), ImVec2{imageSize.x * scale, imageSize.y * scale});
         state.hovered = ImGui::IsItemHovered();
     }
     ImGui::End();
@@ -34,17 +41,30 @@ ViewportPanelState drawViewportPanel(ImGuiID dockspace, const ViewportTarget& vi
     return state;
 }
 
-void drawStatsPanel(const Scene& scene, const ViewportTarget& viewport)
+void drawStatsPanel(const Scene& scene, const ViewportTarget& viewport, const Camera& camera,
+                    std::span<const GpuTiming> gpuTimings, float cpuRecordMilliseconds, const Benchmark& benchmark)
 {
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::Begin(ICON_FA_CHART_SIMPLE " Stats###Stats");
     ImGui::Text("%.2f ms (%.0f FPS)", 1000.0f / io.Framerate, io.Framerate);
     ImGui::Text("Viewport: %u x %u", viewport.extent().width, viewport.extent().height);
+    if (benchmark.running())
+        ImGui::ProgressBar(benchmark.progress(), ImVec2{-1.0f, 0.0f}, benchmark.currentView().name);
+
+    ImGui::Separator();
+    ImGui::Text("CPU record %5.2f ms", cpuRecordMilliseconds);
+    ImGui::Text("GPU time");
+    for (const GpuTiming& timing : gpuTimings)
+        ImGui::Text("  %-8s %5.2f ms", timing.name, timing.milliseconds);
     ImGui::Separator();
     ImGui::Text("Draws: %zu", scene.draws().size());
     ImGui::Text("Primitives: %zu", scene.primitives().size());
     ImGui::Text("Vertices: %zu", static_cast<size_t>(scene.vertexCount()));
     ImGui::Text("Indices: %zu", static_cast<size_t>(scene.indexCount()));
+    ImGui::Separator();
+    const glm::vec3 position = camera.worldPosition();
+    ImGui::Text("Camera: %.2f, %.2f, %.2f", position.x, position.y, position.z);
+    ImGui::Text("Yaw %.1f, pitch %.1f", glm::degrees(camera.yawRadians()), glm::degrees(camera.pitchRadians()));
     ImGui::End();
 }
 

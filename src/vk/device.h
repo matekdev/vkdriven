@@ -40,6 +40,17 @@ class Device
         return queueFamily_;
     }
 
+    // Nanoseconds per timestamp tick, and how many low bits of a timestamp on our queue are valid.
+    [[nodiscard]] float timestampPeriod() const
+    {
+        return timestampPeriod_;
+    }
+
+    [[nodiscard]] uint32_t timestampValidBits() const
+    {
+        return timestampValidBits_;
+    }
+
     [[nodiscard]] VkFormat depthFormat() const
     {
         return depthFormat_;
@@ -53,4 +64,6 @@ class Device
     VkQueue queue_{VK_NULL_HANDLE};
     uint32_t queueFamily_{0};
     VkFormat depthFormat_{VK_FORMAT_UNDEFINED};
+    float timestampPeriod_{0.0f};
+    uint32_t timestampValidBits_{0};
 };

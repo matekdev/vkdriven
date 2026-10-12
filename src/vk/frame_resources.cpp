@@ -15,6 +15,7 @@ FrameResources::FrameResources(const Device& device, const Allocator& allocator,
         commandPool.allocate(std::span{&frame.commandBuffer, 1});
         frame.inFlight = createFence(device.handle(), VK_FENCE_CREATE_SIGNALED_BIT);
         frame.imageAcquired = createSemaphore(device.handle());
+        frame.gpuTimer = GpuTimer{device};
         frame.shaderData =
             Buffer{allocator, shaderDataSize, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT};
