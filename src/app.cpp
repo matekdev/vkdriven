@@ -12,6 +12,7 @@
 #include <cmath>
 #include <limits>
 #include <print>
+#include <ranges>
 #include <span>
 #include <vector>
 
@@ -169,8 +170,8 @@ void App::drawFrame()
     const std::vector<GpuTiming> latestTimings = frame.gpuTimer.read();
     if (latestTimings.size() != gpuTimings_.size())
         gpuTimings_ = latestTimings;
-    for (size_t i = 0; i < latestTimings.size(); i++)
-        gpuTimings_[i].milliseconds = std::lerp(gpuTimings_[i].milliseconds, latestTimings[i].milliseconds, 0.05f);
+    for (auto [smoothed, latest] : std::views::zip(gpuTimings_, latestTimings))
+        smoothed.milliseconds = std::lerp(smoothed.milliseconds, latest.milliseconds, 0.05f);
 
     // Acquire next image
     const auto [acquireStatus, imageIndex] = swapchain_.acquireNextImage(frame.imageAcquired.get());

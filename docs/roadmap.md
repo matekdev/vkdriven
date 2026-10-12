@@ -114,7 +114,7 @@ Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* c
 - [ ] 📝 Blog: "GPU-driven culling: from N draw calls to 1". Include CPU time, GPU time, and triangle counts before and after.
 
 ### P5: Profiling case studies (~20h, alongside P3 onward)
-- [ ] GPU timestamp queries per pass, and pipeline statistics queries (VS/FS invocations, primitives)
+- [x] GPU timestamp queries per pass
 - [ ] Profile with vendor tools on whatever hardware is available: **Nsight Graphics** (NVIDIA), **Radeon GPU Profiler** (AMD), **Intel GPA**
 - [ ] Learn to read: occupancy, register/VGPR pressure, memory bandwidth, cache hit rates, warp/wave stalls, overdraw
 - [ ] Write 2–3 case studies, each laid out as "this pass was slow → here's the capture → here's why → here's the fix → here's the new number". Candidates:

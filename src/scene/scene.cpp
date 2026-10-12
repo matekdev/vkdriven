@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <format>
 #include <optional>
+#include <ranges>
 #include <utility>
 #include <variant>
 
@@ -232,9 +233,9 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
                                             {.model = model, .normal = glm::transpose(glm::inverse(model))});
 
                                         const SceneMesh& mesh = meshes[node.meshIndex.value()];
-                                        for (uint32_t i = 0; i < mesh.primitiveCount; i++)
+                                        for (const uint32_t primitiveIndex : std::views::iota(
+                                                 mesh.firstPrimitive, mesh.firstPrimitive + mesh.primitiveCount))
                                         {
-                                            const uint32_t primitiveIndex = mesh.firstPrimitive + i;
                                             scene.draws_.push_back(
                                                 {.primitiveIndex = primitiveIndex,
                                                  .materialIndex = primitives[primitiveIndex].materialIndex,

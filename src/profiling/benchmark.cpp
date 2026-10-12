@@ -9,8 +9,8 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <functional>
 #include <memory>
-#include <numeric>
 #include <ostream>
 #include <print>
 
@@ -139,7 +139,7 @@ void Benchmark::summarizeView()
                          .samples = count,
                          .min = values.front(),
                          .median = values[count / 2],
-                         .mean = std::accumulate(values.begin(), values.end(), 0.0f) / static_cast<float>(count),
+                         .mean = std::ranges::fold_left(values, 0.0f, std::plus{}) / static_cast<float>(count),
                          .p95 = values[std::min(count - 1, count * 95 / 100)]});
     }
 }
