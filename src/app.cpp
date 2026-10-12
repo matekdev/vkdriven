@@ -8,6 +8,7 @@
 #include "vk/check.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <limits>
@@ -34,6 +35,7 @@ App::App(RunMode mode)
       environment_{orThrow(Texture::loadHdr(device_, allocator_, commandPool_, environmentPath))},
       bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size()) + 3},
       pipelineCache_{device_, pipelineCachePath}, shaderDirectory_{VKDRIVEN_SHADER_DIR},
+      cullPass_{device_, allocator_, shaderCompiler_, pipelineCache_, scene_, shaderDirectory_ / "cull.slang"},
       shadowPass_{device_, allocator_, shaderCompiler_, pipelineCache_, bindlessTextures_,
                   shaderDirectory_ / "shadow.slang"},
       scenePass_{device_, shaderCompiler_, pipelineCache_, bindlessTextures_, shaderDirectory_ / "scene.slang",
@@ -88,6 +90,7 @@ void App::run()
         if (shaderWatcher_.poll() || reloadRequested_)
         {
             reloadRequested_ = false;
+            cullPass_.reloadShaders();
             shadowPass_.reloadShaders();
             scenePass_.reloadShaders();
             tonemapPass_.reloadShaders();
@@ -148,11 +151,12 @@ bool App::handleEvents()
 void App::drawUi()
 {
     const ImGuiID dockspace = ImGui::DockSpaceOverViewport();
-    const ViewportPanelState viewportPanel = drawViewportPanel(dockspace, viewport_);
+    const ViewportPanelState viewportPanel = drawViewportPanel(dockspace, viewport_, camera_, cullSettings_);
     if (viewportPanel.requestedExtent)
         requestedViewportExtent_ = *viewportPanel.requestedExtent;
     viewportHovered_ = viewportPanel.hovered;
-    drawStatsPanel(scene_, viewport_, camera_, gpuTimings_, cpuRecordMilliseconds_, benchmark_);
+    drawStatsPanel(scene_, viewport_, gpuTimings_, visibleDrawCount_, cpuRecordMilliseconds_, benchmark_);
+    drawCameraPanel(camera_, cullSettings_);
     drawLightPanel(light_);
     drawShadowPanel(shadowSettings_);
     drawTonemapPanel(tonemapSettings_);
@@ -172,6 +176,10 @@ void App::drawFrame()
         gpuTimings_ = latestTimings;
     for (auto [smoothed, latest] : std::views::zip(gpuTimings_, latestTimings))
         smoothed.milliseconds = std::lerp(smoothed.milliseconds, latest.milliseconds, 0.05f);
+
+    std::array<uint32_t, 1> visibleDrawCount{};
+    frame.visibleDrawCount.read(visibleDrawCount);
+    visibleDrawCount_ = visibleDrawCount[0];
 
     // Acquire next image
     const auto [acquireStatus, imageIndex] = swapchain_.acquireNextImage(frame.imageAcquired.get());
@@ -228,8 +236,12 @@ void App::updateFrameData(Frame& frame) const
     const ShadowCascades cascades =
         computeShadowCascades(camera_, aspect, light_.directionToLight(), shadowSettings_);
 
-    const FrameData frameData{.view = camera_.view(),
-                              .projection = camera_.projection(aspect),
+    const glm::mat4 view = camera_.view();
+    const glm::mat4 projection = camera_.projection(aspect);
+    const glm::mat4 cullProjection =
+        camera_.projection(aspect, camera_.nearPlane(), camera_.farPlane(), cullSettings_.fovScale);
+    const FrameData frameData{.view = view,
+                              .projection = projection,
                               .directionToLight = glm::vec4{light_.directionToLight(), 0.0f},
                               .cameraPosition = glm::vec4{camera_.worldPosition(), 0.0f},
                               .lightRadiance = glm::vec4{light_.radiance(), 0.0f},
@@ -239,7 +251,8 @@ void App::updateFrameData(Frame& frame) const
                               .shadowMapTextureIndex = shadowMapTextureIndex(),
                               .normalOffset = shadowSettings_.normalOffset,
                               .showCascades = shadowSettings_.showCascades ? 1u : 0u,
-                              .environmentTextureIndex = environmentTextureIndex()};
+                              .environmentTextureIndex = environmentTextureIndex(),
+                              .frustumPlanes = frustumPlanes(cullProjection * view)};
     frame.shaderData.write(std::span{&frameData, 1});
 }
 
@@ -254,12 +267,16 @@ void App::recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, Frame& fr
     timer.reset(cb);
     const uint32_t frameScope = timer.begin(cb, "Frame");
 
+    const uint32_t cullScope = timer.begin(cb, "Cull");
+    cullPass_.record(cb, scene_, frame.shaderData.deviceAddress(), frame.visibleDrawCount);
+    timer.end(cb, cullScope);
+
     const uint32_t shadowScope = timer.begin(cb, "Shadows");
     shadowPass_.record(cb, scene_, frame.shaderData.deviceAddress(), shadowSettings_);
     timer.end(cb, shadowScope);
 
     const uint32_t sceneScope = timer.begin(cb, "Scene");
-    scenePass_.record(cb, viewport_, scene_, frame.shaderData.deviceAddress());
+    scenePass_.record(cb, viewport_, scene_, frame.shaderData.deviceAddress(), cullPass_);
     timer.end(cb, sceneScope);
 
     const uint32_t tonemapScope = timer.begin(cb, "Tonemap");

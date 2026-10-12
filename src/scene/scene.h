@@ -19,15 +19,25 @@ class Allocator;
 class CommandPool;
 class Device;
 
+// In the primitive's own (mesh) space; a draw's transform takes it to world space.
+struct BoundingSphere
+{
+    glm::vec3 center{0.0f};
+    float radius{0.0f};
+};
+
 // One draw's worth of geometry: a range in the scene's shared index buffer, plus the offset added
 // to every index so it points at this primitive's vertices in the shared vertex buffer.
+// Uploaded to the GPU as-is, so it must match Primitive in shaders/common.slang.
 struct Primitive
 {
+    BoundingSphere bounds;
     uint32_t firstIndex{0};
     uint32_t indexCount{0};
     int32_t vertexOffset{0};
     uint32_t materialIndex{0};
 };
+static_assert(sizeof(Primitive) == 32);
 
 constexpr uint32_t whiteSrgbTextureIndex = 0;
 constexpr uint32_t whiteLinearTextureIndex = 1;
@@ -130,6 +140,11 @@ class Scene
         return draws_;
     }
 
+    [[nodiscard]] VkDeviceAddress primitiveBufferAddress() const
+    {
+        return primitiveBuffer_.deviceAddress();
+    }
+
     [[nodiscard]] VkDeviceAddress drawBufferAddress() const
     {
         return drawBuffer_.deviceAddress();
@@ -161,6 +176,7 @@ class Scene
     Buffer vertexBuffer_;
     Buffer indexBuffer_;
     Buffer materialBuffer_;
+    Buffer primitiveBuffer_;
     Buffer drawBuffer_;
     Buffer transformBuffer_;
     std::vector<Primitive> primitives_;

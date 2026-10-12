@@ -94,10 +94,10 @@ glm::mat4 Camera::projection(float aspect) const
     return projection(aspect, nearPlane_, farPlane_);
 }
 
-glm::mat4 Camera::projection(float aspect, float sliceNear, float sliceFar) const
+glm::mat4 Camera::projection(float aspect, float sliceNear, float sliceFar, float fovScale) const
 {
     // Reverse-Z: near and far are swapped so depth 1 is the near plane and 0 is the far plane.
-    glm::mat4 projection = glm::perspective(verticalFovRadians_, aspect, sliceFar, sliceNear);
+    glm::mat4 projection = glm::perspective(verticalFovRadians_ * fovScale, aspect, sliceFar, sliceNear);
     // glTF is +Y up but Vulkan's clip space has +Y pointing down the screen.
     projection[1][1] *= -1.0f;
     return projection;

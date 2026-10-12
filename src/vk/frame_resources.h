@@ -22,6 +22,8 @@ struct Frame
     DeviceHandle<VkSemaphore> imageAcquired;
     Buffer shaderData;
     GpuTimer gpuTimer;
+    // A CPU-readable copy of how many draws the cull pass found visible in this frame's last submission.
+    Buffer visibleDrawCount;
 };
 
 class FrameResources

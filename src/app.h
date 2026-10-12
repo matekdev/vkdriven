@@ -7,6 +7,7 @@
 #include "platform/file_watcher.h"
 #include "platform/window.h"
 #include "profiling/benchmark.h"
+#include "render/cull_pass.h"
 #include "render/scene_pass.h"
 #include "render/shadow_pass.h"
 #include "render/tonemap_pass.h"
@@ -92,6 +93,7 @@ class App
     ShaderCompiler shaderCompiler_;
     PipelineCache pipelineCache_;
     std::filesystem::path shaderDirectory_;
+    CullPass cullPass_;
     ShadowPass shadowPass_;
     ScenePass scenePass_;
     TonemapPass tonemapPass_;
@@ -101,9 +103,11 @@ class App
 
     Camera camera_{glm::vec3{-8.0f, 2.0f, 0.0f}, glm::radians(90.0f), 0.0f};
     DirectionalLight light_;
+    CullSettings cullSettings_;
     ShadowSettings shadowSettings_;
     TonemapSettings tonemapSettings_;
     std::vector<GpuTiming> gpuTimings_;
+    uint32_t visibleDrawCount_{0};
     float cpuRecordMilliseconds_{0.0f};
     Benchmark benchmark_;
     glm::vec2 mouseDelta_{};

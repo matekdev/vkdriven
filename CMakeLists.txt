@@ -54,6 +54,8 @@ add_executable(vkdriven
     src/platform/window.h
     src/profiling/benchmark.cpp
     src/profiling/benchmark.h
+    src/render/cull_pass.cpp
+    src/render/cull_pass.h
     src/render/scene_draws.cpp
     src/render/scene_draws.h
     src/render/scene_pass.cpp

@@ -22,6 +22,8 @@ public struct FrameData
     public float normalOffset;
     public uint showCascades;
     public uint environmentTextureIndex;
+    // World space, normals pointing inwards: p is on the inside when dot(plane.xyz, p) + plane.w >= 0.
+    public float4 frustumPlanes[6];
 };
 
 public struct Material
@@ -35,6 +37,21 @@ public struct Material
     public uint normalTextureIndex;
     public float normalScale;
     public uint padding;
+};
+
+public struct BoundingSphere
+{
+    public float3 center;
+    public float radius;
+};
+
+public struct Primitive
+{
+    public BoundingSphere bounds;
+    public uint firstIndex;
+    public uint indexCount;
+    public int vertexOffset;
+    public uint materialIndex;
 };
 
 public struct Draw
@@ -56,7 +73,6 @@ public struct DrawConstants
     public Draw* draws;
     public Transform* transforms;
     public Material* materials;
-    public uint drawIndex;
     public uint cascadeIndex;
 };
 

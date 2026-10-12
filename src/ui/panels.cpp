@@ -3,6 +3,7 @@
 #include <IconsFontAwesome6.h>
 
 #include "profiling/benchmark.h"
+#include "render/cull_pass.h"
 #include "render/shadow_pass.h"
 #include "render/tonemap_pass.h"
 #include "scene/camera.h"
@@ -14,9 +15,30 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cmath>
 #include <cstdint>
 
-ViewportPanelState drawViewportPanel(ImGuiID dockspace, const ViewportTarget& viewport)
+namespace
+{
+
+// The cull frustum shares the camera's position and direction, so from the camera its side planes are a centered
+// rectangle on screen. The fraction of the screen it covers is the ratio of the two frustums' tan(fov / 2), and
+// it's the same horizontally because both use the same aspect ratio.
+void drawCullFrustumOverlay(ImVec2 imageMin, ImVec2 imageMax, const Camera& camera, float fovScale)
+{
+    const float halfFov = camera.verticalFovRadians() / 2.0f;
+    const float coverage = std::tan(halfFov * fovScale) / std::tan(halfFov);
+    const ImVec2 center{(imageMin.x + imageMax.x) / 2.0f, (imageMin.y + imageMax.y) / 2.0f};
+    const ImVec2 halfSize{(imageMax.x - imageMin.x) / 2.0f * coverage, (imageMax.y - imageMin.y) / 2.0f * coverage};
+    ImGui::GetWindowDrawList()->AddRect({center.x - halfSize.x, center.y - halfSize.y},
+                                        {center.x + halfSize.x, center.y + halfSize.y}, IM_COL32(255, 200, 0, 255),
+                                        0.0f, ImDrawFlags_None, 2.0f);
+}
+
+} // namespace
+
+ViewportPanelState drawViewportPanel(ImGuiID dockspace, const ViewportTarget& viewport, const Camera& camera,
+                                     const CullSettings& cullSettings)
 {
     ViewportPanelState state;
 
@@ -34,6 +56,8 @@ ViewportPanelState drawViewportPanel(ImGuiID dockspace, const ViewportTarget& vi
         const float scale = std::min({available.x / imageSize.x, available.y / imageSize.y, 1.0f});
         ImGui::Image(viewport.texture(), ImVec2{imageSize.x * scale, imageSize.y * scale});
         state.hovered = ImGui::IsItemHovered();
+        if (cullSettings.showFrustum && cullSettings.fovScale < 1.0f)
+            drawCullFrustumOverlay(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), camera, cullSettings.fovScale);
     }
     ImGui::End();
     ImGui::PopStyleVar();
@@ -41,8 +65,8 @@ ViewportPanelState drawViewportPanel(ImGuiID dockspace, const ViewportTarget& vi
     return state;
 }
 
-void drawStatsPanel(const Scene& scene, const ViewportTarget& viewport, const Camera& camera,
-                    std::span<const GpuTiming> gpuTimings, float cpuRecordMilliseconds, const Benchmark& benchmark)
+void drawStatsPanel(const Scene& scene, const ViewportTarget& viewport, std::span<const GpuTiming> gpuTimings,
+                    uint32_t visibleDrawCount, float cpuRecordMilliseconds, const Benchmark& benchmark)
 {
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::Begin(ICON_FA_CHART_SIMPLE " Stats###Stats");
@@ -57,14 +81,24 @@ void drawStatsPanel(const Scene& scene, const ViewportTarget& viewport, const Ca
     for (const GpuTiming& timing : gpuTimings)
         ImGui::Text("  %-8s %5.2f ms", timing.name, timing.milliseconds);
     ImGui::Separator();
-    ImGui::Text("Draws: %zu", scene.draws().size());
+    ImGui::Text("Draws: %u visible / %zu", visibleDrawCount, scene.draws().size());
     ImGui::Text("Primitives: %zu", scene.primitives().size());
     ImGui::Text("Vertices: %zu", static_cast<size_t>(scene.vertexCount()));
     ImGui::Text("Indices: %zu", static_cast<size_t>(scene.indexCount()));
+    ImGui::End();
+}
+
+void drawCameraPanel(Camera& camera, CullSettings& cullSettings)
+{
+    ImGui::Begin(ICON_FA_VIDEO " Camera###Camera");
+    float verticalFovRadians = camera.verticalFovRadians();
+    if (ImGui::SliderAngle("Vertical FOV", &verticalFovRadians, 20.0f, 120.0f))
+        camera.setVerticalFovRadians(verticalFovRadians);
     ImGui::Separator();
-    const glm::vec3 position = camera.worldPosition();
-    ImGui::Text("Camera: %.2f, %.2f, %.2f", position.x, position.y, position.z);
-    ImGui::Text("Yaw %.1f, pitch %.1f", glm::degrees(camera.yawRadians()), glm::degrees(camera.pitchRadians()));
+    ImGui::SliderFloat("Cull FOV scale", &cullSettings.fovScale, 0.1f, 1.0f, "%.2f");
+    ImGui::Checkbox("Show cull frustum", &cullSettings.showFrustum);
+    ImGui::SetItemTooltip("Culls with a narrower frustum than the camera renders with, so culled draws vanish "
+                          "on screen instead of just past its edges.");
     ImGui::End();
 }
 

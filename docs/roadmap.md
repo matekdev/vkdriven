@@ -101,16 +101,13 @@ Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* c
 - [x] **Cascaded shadow maps**: cascade splits, a layered depth image, cascade selection (*Guest Articles → Cascaded Shadow Mapping*). Beyond the tutorial: texel snapping to stop shimmering, and normal-offset bias.
 
 ### P4: GPU-driven rendering (~50h, 10 weeks). ★ The main feature
-- [ ] **Compute frustum culling** per instance → writes a compacted draw list
-- [ ] `vkCmdDrawIndexedIndirectCount`: the whole scene in one draw call
+- [x] **Compute frustum culling** per instance → writes a compacted draw list
+- [x] `vkCmdDrawIndexedIndirectCount`: the whole scene in one draw call
 - [ ] **Hi-Z depth pyramid** (compute downsample, min/max reduction)
 - [ ] **Two-pass occlusion culling**: draw last frame's visible objects, build Hi-Z, cull the rest, draw the newly visible ones
 - [ ] Add **meshoptimizer**. **Meshlets** built with `meshopt_buildMeshlets`.
 - [ ] **Mesh shaders** (`VK_EXT_mesh_shader`): task shader does per-meshlet frustum, occlusion, and **cone backface** culling; mesh shader outputs triangles
-- [ ] Fallback path without mesh shaders (meshlet index buffer + indirect draw), so it runs on all hardware
 - [ ] Simple LOD (meshoptimizer `simplify`) chosen per instance in the culling shader
-- [ ] Stress scene: 100k–1M instances (a procedurally scattered city or forest), or a large CAD-like assembly with heavy instancing
-- [ ] ImGui: counts of instances, meshlets, and triangles submitted vs. culled, and time per pass
 - [ ] 📝 Blog: "GPU-driven culling: from N draw calls to 1". Include CPU time, GPU time, and triangle counts before and after.
 
 ### P5: Profiling case studies (~20h, alongside P3 onward)
@@ -120,7 +117,6 @@ Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* c
 - [ ] Write 2–3 case studies, each laid out as "this pass was slow → here's the capture → here's why → here's the fix → here's the new number". Candidates:
   - [ ] Culling shader occupancy (changing workgroup size, register usage)
   - [ ] Shadow pass cost vs. cascade count and resolution
-  - [ ] Mesh shader path vs. indirect-draw path, on one or more GPUs
   - [ ] (Optional) PNG vs. KTX2/BC7 textures (`KHR_texture_basisu`, transcoded with KTX-Software): VRAM, load time and frame time
 - [ ] 📝 Blog: one post per case study
 

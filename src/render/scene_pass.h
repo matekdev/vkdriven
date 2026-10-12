@@ -12,6 +12,7 @@
 #include <filesystem>
 
 class BindlessTextures;
+class CullPass;
 class Device;
 class Scene;
 class PipelineCache;
@@ -33,9 +34,10 @@ struct FrameData
     float normalOffset;
     uint32_t showCascades;
     uint32_t environmentTextureIndex;
+    std::array<glm::vec4, 6> frustumPlanes;
 };
 static_assert(ShadowPass::cascadeCount == 4, "cascadeSplitDepths and cascadeTexelSizes hold one float per cascade");
-static_assert(sizeof(FrameData) == 480);
+static_assert(sizeof(FrameData) == 576);
 
 struct DrawConstants
 {
@@ -43,7 +45,6 @@ struct DrawConstants
     VkDeviceAddress draws;
     VkDeviceAddress transforms;
     VkDeviceAddress materials;
-    uint32_t drawIndex;
     uint32_t cascadeIndex;
 };
 
@@ -63,7 +64,8 @@ class ScenePass
         skyboxPipeline_.reload();
     }
 
-    void record(VkCommandBuffer cb, const ViewportTarget& target, const Scene& scene, VkDeviceAddress frameData) const;
+    void record(VkCommandBuffer cb, const ViewportTarget& target, const Scene& scene, VkDeviceAddress frameData,
+                const CullPass& cullPass) const;
 
   private:
     const BindlessTextures& textures_;

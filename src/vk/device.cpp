@@ -113,6 +113,7 @@ Device::Device(const Instance& instance, const Surface& surface)
     const auto deviceExtensions = std::to_array<const char*>({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
 
     VkPhysicalDeviceVulkan12Features enabledVk12Features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+                                                         .drawIndirectCount = true,
                                                          .descriptorIndexing = true,
                                                          .shaderSampledImageArrayNonUniformIndexing = true,
                                                          .descriptorBindingVariableDescriptorCount = true,
@@ -124,7 +125,7 @@ Device::Device(const Instance& instance, const Surface& surface)
         .synchronization2 = true,
         .dynamicRendering = true,
     };
-    VkPhysicalDeviceFeatures enabledVk10Features{.samplerAnisotropy = VK_TRUE};
+    VkPhysicalDeviceFeatures enabledVk10Features{.drawIndirectFirstInstance = VK_TRUE, .samplerAnisotropy = VK_TRUE};
 
     VkDeviceCreateInfo deviceCI{.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
                                 .pNext = &enabledVk13Features,

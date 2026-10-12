@@ -18,7 +18,8 @@ class Camera
     [[nodiscard]] glm::mat4 view() const;
     [[nodiscard]] glm::mat4 projection(float aspect) const;
     // The same projection cut down to view depths [sliceNear, sliceFar], e.g. to find a shadow cascade's slice.
-    [[nodiscard]] glm::mat4 projection(float aspect, float sliceNear, float sliceFar) const;
+    // fovScale narrows (below 1) or widens the field of view.
+    [[nodiscard]] glm::mat4 projection(float aspect, float sliceNear, float sliceFar, float fovScale = 1.0f) const;
     [[nodiscard]] glm::vec3 worldPosition() const;
 
     [[nodiscard]] float yawRadians() const
@@ -37,6 +38,21 @@ class Camera
     [[nodiscard]] float nearPlane() const
     {
         return nearPlane_;
+    }
+
+    [[nodiscard]] float farPlane() const
+    {
+        return farPlane_;
+    }
+
+    [[nodiscard]] float verticalFovRadians() const
+    {
+        return verticalFovRadians_;
+    }
+
+    void setVerticalFovRadians(float verticalFovRadians)
+    {
+        verticalFovRadians_ = verticalFovRadians;
     }
 
   private:

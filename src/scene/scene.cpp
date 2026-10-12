@@ -9,9 +9,11 @@
 #include "scene/vertex.h"
 #include "vk/upload.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <format>
+#include <limits>
 #include <optional>
 #include <ranges>
 #include <utility>
@@ -57,6 +59,28 @@ void generateSmoothNormals(std::span<Vertex> vertices, std::span<const uint32_t>
         const float length = glm::length(vertex.normal);
         vertex.normal = length > 0.0f ? vertex.normal / length : glm::vec3{0.0f, 1.0f, 0.0f};
     }
+}
+
+// Centered on the bounding box and reaching the farthest vertex. Not the smallest possible sphere, but close
+// enough for culling and a single pass over the vertices.
+BoundingSphere computeBoundingSphere(std::span<const Vertex> vertices)
+{
+    if (vertices.empty())
+        return {};
+
+    glm::vec3 min{std::numeric_limits<float>::max()};
+    glm::vec3 max{std::numeric_limits<float>::lowest()};
+    for (const Vertex& vertex : vertices)
+    {
+        min = glm::min(min, vertex.pos);
+        max = glm::max(max, vertex.pos);
+    }
+
+    const glm::vec3 center = (min + max) * 0.5f;
+    float radius = 0.0f;
+    for (const Vertex& vertex : vertices)
+        radius = std::max(radius, glm::distance(center, vertex.pos));
+    return {.center = center, .radius = radius};
 }
 
 } // namespace
@@ -204,6 +228,7 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
                                       std::span{indices}.subspan(firstIndex));
 
             primitives.push_back({
+                .bounds = computeBoundingSphere(std::span{vertices}.subspan(firstVertex)),
                 .firstIndex = static_cast<uint32_t>(firstIndex),
                 .indexCount = static_cast<uint32_t>(indexAccessor.count),
                 .vertexOffset = static_cast<int32_t>(firstVertex),
@@ -251,6 +276,8 @@ std::expected<Scene, std::string> Scene::loadGltf(const Device& device, const Al
     scene.indexBuffer_ = uploadDeviceLocalBuffer(allocator, commandPool, indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     scene.materialBuffer_ =
         uploadDeviceLocalBuffer(allocator, commandPool, materials, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+    scene.primitiveBuffer_ =
+        uploadDeviceLocalBuffer(allocator, commandPool, primitives, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
     scene.drawBuffer_ =
         uploadDeviceLocalBuffer(allocator, commandPool, scene.draws_, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
     scene.transformBuffer_ =

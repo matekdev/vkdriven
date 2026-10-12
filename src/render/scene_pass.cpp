@@ -34,7 +34,7 @@ ScenePass::ScenePass(const Device& device, const ShaderCompiler& shaderCompiler,
 }
 
 void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const Scene& scene,
-                       VkDeviceAddress frameData) const
+                       VkDeviceAddress frameData, const CullPass& cullPass) const
 {
     const VkExtent2D extent = target.extent();
 
@@ -86,7 +86,7 @@ void ScenePass::record(VkCommandBuffer cb, const ViewportTarget& target, const S
 
     setViewportAndScissor(cb, extent);
 
-    recordSceneDraws(cb, pipeline_, textures_, scene, frameData);
+    recordCulledSceneDraws(cb, pipeline_, textures_, scene, frameData, cullPass);
 
     // After the scene, so the depth test skips every pixel the geometry already covers.
     vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline_.handle());

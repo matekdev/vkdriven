@@ -9,12 +9,14 @@ struct VSOutput
     float3 Normal;
     float2 UV;
     float4 Tangent;
+    nointerpolation uint DrawIndex;
 };
 
+// Every draw has one instance whose firstInstance is the draw's index, so the instance index is the draw index.
 [shader("vertex")]
-VSOutput main(VSInput input)
+VSOutput main(VSInput input, uint drawIndex: SV_VulkanInstanceID)
 {
-    Draw draw = constants.draws[constants.drawIndex];
+    Draw draw = constants.draws[drawIndex];
     Transform transform = constants.transforms[draw.transformIndex];
     float4x4 view = constants.frame->view;
     float4x4 projection = constants.frame->projection;
@@ -29,6 +31,7 @@ VSOutput main(VSInput input)
     output.UV = input.UV;
     // Tangents lie along the surface, so they transform with the model matrix, not the normal matrix.
     output.Tangent = float4(mul((float3x3)transform.model, input.Tangent.xyz), input.Tangent.w);
+    output.DrawIndex = drawIndex;
     return output;
 }
 
@@ -157,7 +160,7 @@ float3 Specular(float3 N, float3 V, float3 L, float3 H, float3 F, float roughnes
 [shader("fragment")]
 float4 main(VSOutput input)
 {
-    Draw draw = constants.draws[constants.drawIndex];
+    Draw draw = constants.draws[input.DrawIndex];
     Material material = constants.materials[draw.materialIndex];
     float4 baseColor = material.baseColorFactor * textures[material.baseColorTextureIndex].Sample(input.UV);
     if (baseColor.a < material.alphaCutoff)

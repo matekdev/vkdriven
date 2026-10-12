@@ -27,7 +27,7 @@ class Buffer
 
     template <std::ranges::contiguous_range Range> void write(const Range& data, VkDeviceSize offset = 0)
     {
-        write(std::as_bytes(std::span{data}), offset);
+        write(std::as_bytes(std::span<const std::ranges::range_value_t<Range>>{data}), offset);
     }
 
     void read(std::span<std::byte> bytes, VkDeviceSize offset = 0) const;

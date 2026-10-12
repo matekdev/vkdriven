@@ -41,3 +41,10 @@ inline void pipelineBarrier(VkCommandBuffer cb, const VkImageMemoryBarrier2& bar
 {
     pipelineBarrier(cb, std::span{&barrier, 1});
 }
+
+inline void pipelineBarrier(VkCommandBuffer cb, const VkMemoryBarrier2& barrier)
+{
+    VkDependencyInfo dependencyInfo{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO, .memoryBarrierCount = 1, .pMemoryBarriers = &barrier};
+    vkCmdPipelineBarrier2(cb, &dependencyInfo);
+}
