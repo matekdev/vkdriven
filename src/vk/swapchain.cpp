@@ -8,9 +8,27 @@
 
 #include <algorithm>
 #include <limits>
+#include <vector>
 
-Swapchain::Swapchain(const Device& device, const Surface& surface, const Window& window)
-    : device_{device.handle()}, physical_{device.physical()}, surface_{surface.handle()}, window_{window}
+namespace
+{
+
+// FIFO is the only mode every surface has to support.
+VkPresentModeKHR immediateIfSupported(VkPhysicalDevice physical, VkSurfaceKHR surface)
+{
+    uint32_t count = 0;
+    chk(vkGetPhysicalDeviceSurfacePresentModesKHR(physical, surface, &count, nullptr));
+    std::vector<VkPresentModeKHR> modes(count);
+    chk(vkGetPhysicalDeviceSurfacePresentModesKHR(physical, surface, &count, modes.data()));
+    return std::ranges::contains(modes, VK_PRESENT_MODE_IMMEDIATE_KHR) ? VK_PRESENT_MODE_IMMEDIATE_KHR
+                                                                      : VK_PRESENT_MODE_FIFO_KHR;
+}
+
+} // namespace
+
+Swapchain::Swapchain(const Device& device, const Surface& surface, const Window& window, bool vsync)
+    : device_{device.handle()}, physical_{device.physical()}, surface_{surface.handle()}, window_{window},
+      presentMode_{vsync ? VK_PRESENT_MODE_FIFO_KHR : immediateIfSupported(device.physical(), surface.handle())}
 {
     const VkSurfaceCapabilitiesKHR capabilities = surfaceCapabilities();
     create(capabilities, chooseExtent(capabilities));
@@ -102,7 +120,7 @@ void Swapchain::create(const VkSurfaceCapabilitiesKHR& capabilities, VkExtent2D 
                                          .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                                          .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
                                          .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-                                         .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+                                         .presentMode = presentMode_,
                                          .oldSwapchain = oldSwapchain};
     chk(vkCreateSwapchainKHR(device_, &swapchainCI, nullptr, &swapchain_));
     extent_ = extent;

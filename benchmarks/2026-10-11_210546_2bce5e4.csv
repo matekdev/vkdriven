@@ -1,0 +1,19 @@
+commit,build,viewport,view,metric,samples,min_ms,median_ms,mean_ms,p95_ms
+2bce5e4,release,1920x1080,Atrium,CPU record,500,0.0343,0.0456,0.0469,0.0523
+2bce5e4,release,1920x1080,Atrium,GPU Frame,500,0.9875,0.9952,1.0568,1.3229
+2bce5e4,release,1920x1080,Atrium,GPU Shadows,500,0.4417,0.4453,0.4814,0.7568
+2bce5e4,release,1920x1080,Atrium,GPU Scene,500,0.4823,0.4956,0.5157,0.8069
+2bce5e4,release,1920x1080,Atrium,GPU Tonemap,500,0.0133,0.0154,0.0177,0.0164
+2bce5e4,release,1920x1080,Atrium,GPU ImGui,500,0.0389,0.0389,0.0418,0.0420
+2bce5e4,release,1920x1080,Wall,CPU record,500,0.0366,0.0449,0.0468,0.0515
+2bce5e4,release,1920x1080,Wall,GPU Frame,500,0.8419,0.8573,0.9060,1.1898
+2bce5e4,release,1920x1080,Wall,GPU Shadows,500,0.4107,0.4193,0.4447,0.7228
+2bce5e4,release,1920x1080,Wall,GPU Scene,500,0.3738,0.3809,0.4029,0.7096
+2bce5e4,release,1920x1080,Wall,GPU Tonemap,500,0.0154,0.0164,0.0172,0.0184
+2bce5e4,release,1920x1080,Wall,GPU ImGui,500,0.0379,0.0389,0.0411,0.0399
+2bce5e4,release,1920x1080,Gallery,CPU record,500,0.0365,0.0476,0.0488,0.0539
+2bce5e4,release,1920x1080,Gallery,GPU Frame,500,0.9845,0.9932,1.0509,1.3185
+2bce5e4,release,1920x1080,Gallery,GPU Shadows,500,0.4299,0.4328,0.4659,0.7440
+2bce5e4,release,1920x1080,Gallery,GPU Scene,500,0.4997,0.5059,0.5253,0.8151
+2bce5e4,release,1920x1080,Gallery,GPU Tonemap,500,0.0133,0.0143,0.0154,0.0164
+2bce5e4,release,1920x1080,Gallery,GPU ImGui,500,0.0389,0.0399,0.0442,0.0399

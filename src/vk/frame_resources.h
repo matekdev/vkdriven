@@ -3,6 +3,7 @@
 #include <volk.h>
 
 #include "vk/buffer.h"
+#include "vk/gpu_timer.h"
 #include "vk/handle.h"
 
 #include <array>
@@ -20,6 +21,7 @@ struct Frame
     DeviceHandle<VkFence> inFlight;
     DeviceHandle<VkSemaphore> imageAcquired;
     Buffer shaderData;
+    GpuTimer gpuTimer;
 };
 
 class FrameResources

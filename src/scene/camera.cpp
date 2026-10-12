@@ -112,3 +112,12 @@ glm::vec3 Camera::forward() const
 {
     return {std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_), -std::cos(pitch_) * std::cos(yaw_)};
 }
+
+void Camera::setPose(glm::vec3 position, float yawRadians, float pitchRadians)
+{
+    position_ = position;
+    yaw_ = yawRadians;
+    pitch_ = pitchRadians;
+    velocity_ = {};
+    pendingLook_ = {};
+}

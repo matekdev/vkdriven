@@ -6,6 +6,7 @@
 
 #include "platform/file_watcher.h"
 #include "platform/window.h"
+#include "profiling/benchmark.h"
 #include "render/scene_pass.h"
 #include "render/shadow_pass.h"
 #include "render/tonemap_pass.h"
@@ -28,6 +29,15 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <vector>
+
+enum class RunMode
+{
+    Interactive,
+    // Runs the benchmark once the viewport has settled, then quits. Vsync is off, so the GPU never idles
+    // waiting on the display and its clocks stay up.
+    Benchmark,
+};
 
 // Owns the whole renderer. Members are declared in dependency order, so they're created top to
 // bottom and destroyed bottom to top; the destructor only has to wait for the GPU first.
@@ -35,7 +45,7 @@
 class App
 {
   public:
-    App();
+    explicit App(RunMode mode);
     ~App();
 
     App(const App&) = delete;
@@ -50,7 +60,7 @@ class App
     void drawUi();
     void drawFrame();
     void updateFrameData(Frame& frame) const;
-    void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, const Frame& frame) const;
+    void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, Frame& frame) const;
 
     [[nodiscard]] uint32_t hdrTextureIndex() const
     {
@@ -67,6 +77,7 @@ class App
         return shadowMapTextureIndex() + 1;
     }
 
+    RunMode mode_;
     Window window_;
     Instance instance_;
     Surface surface_;
@@ -92,6 +103,9 @@ class App
     DirectionalLight light_;
     ShadowSettings shadowSettings_;
     TonemapSettings tonemapSettings_;
+    std::vector<GpuTiming> gpuTimings_;
+    float cpuRecordMilliseconds_{0.0f};
+    Benchmark benchmark_;
     glm::vec2 mouseDelta_{};
     bool viewportHovered_{false};
 

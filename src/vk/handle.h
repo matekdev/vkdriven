@@ -54,6 +54,11 @@ inline void destroyHandle(VkDevice device, VkDescriptorPool handle)
     vkDestroyDescriptorPool(device, handle, nullptr);
 }
 
+inline void destroyHandle(VkDevice device, VkQueryPool handle)
+{
+    vkDestroyQueryPool(device, handle, nullptr);
+}
+
 inline void destroyHandle(VkDevice device, VkCommandPool handle)
 {
     vkDestroyCommandPool(device, handle, nullptr);

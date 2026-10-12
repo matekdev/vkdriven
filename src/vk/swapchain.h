@@ -29,7 +29,9 @@ struct AcquiredImage
 class Swapchain
 {
   public:
-    Swapchain(const Device& device, const Surface& surface, const Window& window);
+    // Without vsync, frames are presented immediately (tearing) when the surface supports it, so the GPU never
+    // waits on the display. Used for benchmarking.
+    Swapchain(const Device& device, const Surface& surface, const Window& window, bool vsync);
     ~Swapchain();
 
     Swapchain(const Swapchain&) = delete;
@@ -83,6 +85,7 @@ class Swapchain
     // UNORM because only ImGui draws to the swapchain, and its colors are already sRGB-encoded.
     VkFormat format_{VK_FORMAT_B8G8R8A8_UNORM};
     VkExtent2D extent_{};
+    VkPresentModeKHR presentMode_{VK_PRESENT_MODE_FIFO_KHR};
     std::vector<VkImage> images_;
     std::vector<DeviceHandle<VkImageView>> views_;
     std::vector<DeviceHandle<VkSemaphore>> renderCompleteSemaphores_;

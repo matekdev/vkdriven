@@ -52,6 +52,8 @@ add_executable(vkdriven
     src/platform/file_watcher.h
     src/platform/window.cpp
     src/platform/window.h
+    src/profiling/benchmark.cpp
+    src/profiling/benchmark.h
     src/render/scene_draws.cpp
     src/render/scene_draws.h
     src/render/scene_pass.cpp
@@ -94,6 +96,8 @@ add_executable(vkdriven
     src/vk/device.h
     src/vk/frame_resources.cpp
     src/vk/frame_resources.h
+    src/vk/gpu_timer.cpp
+    src/vk/gpu_timer.h
     src/vk/graphics_pipeline.cpp
     src/vk/graphics_pipeline.h
     src/vk/handle.h
