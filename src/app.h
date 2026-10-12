@@ -6,6 +6,7 @@
 
 #include "platform/file_watcher.h"
 #include "platform/window.h"
+#include "profiling/benchmark.h"
 #include "render/scene_pass.h"
 #include "render/shadow_pass.h"
 #include "render/tonemap_pass.h"
@@ -28,10 +29,18 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <vector>
 
 // Owns the whole renderer. Members are declared in dependency order, so they're created top to
 // bottom and destroyed bottom to top; the destructor only has to wait for the GPU first.
 // Throws std::runtime_error from the constructor if an asset or shader fails to load.
+enum class RunMode
+{
+    Interactive,
+    // Runs the benchmark once the viewport has settled, then quits.
+    Benchmark,
+};
+
 class App
 {
   public:
@@ -43,14 +52,14 @@ class App
     App(App&&) = delete;
     App& operator=(App&&) = delete;
 
-    void run();
+    void run(RunMode mode);
 
   private:
     [[nodiscard]] bool handleEvents();
     void drawUi();
     void drawFrame();
     void updateFrameData(Frame& frame) const;
-    void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, const Frame& frame) const;
+    void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, Frame& frame) const;
 
     [[nodiscard]] uint32_t hdrTextureIndex() const
     {
@@ -92,6 +101,9 @@ class App
     DirectionalLight light_;
     ShadowSettings shadowSettings_;
     TonemapSettings tonemapSettings_;
+    std::vector<GpuTiming> gpuTimings_;
+    float cpuRecordMilliseconds_{0.0f};
+    Benchmark benchmark_;
     glm::vec2 mouseDelta_{};
     bool viewportHovered_{false};
 

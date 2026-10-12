@@ -21,6 +21,19 @@ class Camera
     [[nodiscard]] glm::mat4 projection(float aspect, float sliceNear, float sliceFar) const;
     [[nodiscard]] glm::vec3 worldPosition() const;
 
+    [[nodiscard]] float yawRadians() const
+    {
+        return yaw_;
+    }
+
+    [[nodiscard]] float pitchRadians() const
+    {
+        return pitch_;
+    }
+
+    // Jumps straight to a pose and drops any leftover movement, so a view can be reproduced exactly.
+    void setPose(glm::vec3 position, float yawRadians, float pitchRadians);
+
     [[nodiscard]] float nearPlane() const
     {
         return nearPlane_;
