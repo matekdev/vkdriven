@@ -31,20 +31,21 @@
 #include <filesystem>
 #include <vector>
 
-// Owns the whole renderer. Members are declared in dependency order, so they're created top to
-// bottom and destroyed bottom to top; the destructor only has to wait for the GPU first.
-// Throws std::runtime_error from the constructor if an asset or shader fails to load.
 enum class RunMode
 {
     Interactive,
-    // Runs the benchmark once the viewport has settled, then quits.
+    // Runs the benchmark once the viewport has settled, then quits. Vsync is off, so the GPU never idles
+    // waiting on the display and its clocks stay up.
     Benchmark,
 };
 
+// Owns the whole renderer. Members are declared in dependency order, so they're created top to
+// bottom and destroyed bottom to top; the destructor only has to wait for the GPU first.
+// Throws std::runtime_error from the constructor if an asset or shader fails to load.
 class App
 {
   public:
-    App();
+    explicit App(RunMode mode);
     ~App();
 
     App(const App&) = delete;
@@ -52,7 +53,7 @@ class App
     App(App&&) = delete;
     App& operator=(App&&) = delete;
 
-    void run(RunMode mode);
+    void run();
 
   private:
     [[nodiscard]] bool handleEvents();
@@ -76,6 +77,7 @@ class App
         return shadowMapTextureIndex() + 1;
     }
 
+    RunMode mode_;
     Window window_;
     Instance instance_;
     Surface surface_;
