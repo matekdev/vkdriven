@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstdint>
+#include <vector>
 
 GraphicsPipeline::GraphicsPipeline(const Device& device, VkPipelineCache pipelineCache, VkShaderModule shaderModule,
                                    const GraphicsPipelineInfo& info)
@@ -66,20 +67,20 @@ GraphicsPipeline::GraphicsPipeline(const Device& device, VkPipelineCache pipelin
     VkPipelineDepthStencilStateCreateInfo depthStencilState{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         .depthTestEnable = info.depthFormat != VK_FORMAT_UNDEFINED,
-        .depthWriteEnable = info.depthFormat != VK_FORMAT_UNDEFINED,
-        .depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL};
-    VkPipelineColorBlendAttachmentState blendAttachment{.colorWriteMask =
-                                                            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                                            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
-    const uint32_t colorAttachmentCount = info.colorFormat == VK_FORMAT_UNDEFINED ? 0 : 1;
+        .depthWriteEnable = info.depthFormat != VK_FORMAT_UNDEFINED && info.depthWrite,
+        .depthCompareOp = info.depthCompareOp};
+    const uint32_t colorAttachmentCount = static_cast<uint32_t>(info.colorFormats.size());
+    const std::vector<VkPipelineColorBlendAttachmentState> blendAttachments(
+        colorAttachmentCount, {.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                                 VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT});
     VkPipelineColorBlendStateCreateInfo colorBlendState{.sType =
                                                             VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
                                                         .attachmentCount = colorAttachmentCount,
-                                                        .pAttachments = &blendAttachment};
+                                                        .pAttachments = blendAttachments.data()};
 
     VkPipelineRenderingCreateInfo renderingCI{.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                                               .colorAttachmentCount = colorAttachmentCount,
-                                              .pColorAttachmentFormats = &info.colorFormat,
+                                              .pColorAttachmentFormats = info.colorFormats.data(),
                                               .depthAttachmentFormat = info.depthFormat};
     VkGraphicsPipelineCreateInfo pipelineCI{.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                                             .pNext = &renderingCI,

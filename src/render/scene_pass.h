@@ -33,9 +33,11 @@ struct FrameData
     float normalOffset;
     uint32_t showCascades;
     uint32_t environmentTextureIndex;
+    // Last frame's projection * view, for motion vectors.
+    glm::mat4 previousViewProjection;
 };
 static_assert(ShadowPass::cascadeCount == 4, "cascadeSplitDepths and cascadeTexelSizes hold one float per cascade");
-static_assert(sizeof(FrameData) == 480);
+static_assert(sizeof(FrameData) == 544);
 
 struct DrawConstants
 {
@@ -47,7 +49,8 @@ struct DrawConstants
     uint32_t cascadeIndex;
 };
 
-// Draws the scene into the viewport's color and depth images, then leaves the color image ready to be sampled.
+// Draws the scene into the viewport's HDR image, depth-testing against the depth prepass, then leaves the HDR image
+// ready to be sampled.
 // Throws std::runtime_error from the constructor if the shader fails to compile.
 class ScenePass
 {

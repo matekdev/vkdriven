@@ -22,6 +22,7 @@ public struct FrameData
     public float normalOffset;
     public uint showCascades;
     public uint environmentTextureIndex;
+    public float4x4 previousViewProjection;
 };
 
 public struct Material
@@ -61,5 +62,14 @@ public struct DrawConstants
 };
 
 [[vk::push_constant]] public DrawConstants constants;
+
+// Shared by the depth prepass and the scene pass. The scene pass tests depth with EQUAL against the prepass,
+// so both must compute exactly the same position.
+public float4 ClipPosition(float3 position, Transform transform)
+{
+    // Column vectors, so read right to left: model -> world -> view -> clip.
+    float4x4 mvp = mul(constants.frame->projection, mul(constants.frame->view, transform.model));
+    return mul(mvp, float4(position, 1.0));
+}
 
 [[vk::binding(0, 0)]] public Sampler2D textures[];

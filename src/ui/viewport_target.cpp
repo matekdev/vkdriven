@@ -83,7 +83,7 @@ void ViewportTarget::create(VkExtent2D extent)
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
     depth_ = Image{allocator_, depthCI, VK_IMAGE_ASPECT_DEPTH_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
@@ -102,15 +102,23 @@ void ViewportTarget::create(VkExtent2D extent)
     };
     hdr_ = Image{allocator_, hdrCI, VK_IMAGE_ASPECT_COLOR_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
 
-    VkSamplerCreateInfo hdrSamplerCI{.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-                                     .magFilter = VK_FILTER_LINEAR,
-                                     .minFilter = VK_FILTER_LINEAR,
-                                     .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-                                     .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-                                     .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE};
-    VkSampler hdrSampler{VK_NULL_HANDLE};
-    chk(vkCreateSampler(allocatorInfo.device, &hdrSamplerCI, nullptr, &hdrSampler));
-    hdrSampler_ = DeviceHandle<VkSampler>{allocatorInfo.device, hdrSampler};
+    VkImageCreateInfo normalCI = hdrCI;
+    normalCI.format = normalFormat;
+    normal_ = Image{allocator_, normalCI, VK_IMAGE_ASPECT_COLOR_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
+
+    VkImageCreateInfo motionCI = hdrCI;
+    motionCI.format = motionFormat;
+    motion_ = Image{allocator_, motionCI, VK_IMAGE_ASPECT_COLOR_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT};
+
+    VkSamplerCreateInfo samplerCI{.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+                                  .magFilter = VK_FILTER_LINEAR,
+                                  .minFilter = VK_FILTER_LINEAR,
+                                  .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+                                  .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+                                  .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE};
+    VkSampler sampler{VK_NULL_HANDLE};
+    chk(vkCreateSampler(allocatorInfo.device, &samplerCI, nullptr, &sampler));
+    sampler_ = DeviceHandle<VkSampler>{allocatorInfo.device, sampler};
 
     texture_ = ImGui_ImplVulkan_AddTexture(displayView_.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
@@ -125,5 +133,7 @@ void ViewportTarget::destroy()
     color_.reset();
     depth_.reset();
     hdr_.reset();
-    hdrSampler_.reset();
+    normal_.reset();
+    motion_.reset();
+    sampler_.reset();
 }

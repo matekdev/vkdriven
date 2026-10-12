@@ -1,0 +1,111 @@
+#include "render/depth_prepass.h"
+
+#include "render/scene_draws.h"
+#include "render/scene_pass.h"
+#include "ui/viewport_target.h"
+#include "vk/bindless_textures.h"
+#include "vk/commands.h"
+#include "vk/device.h"
+#include "vk/sync.h"
+
+#include <array>
+#include <utility>
+
+DepthPrepass::DepthPrepass(const Device& device, const ShaderCompiler& shaderCompiler,
+                           const PipelineCache& pipelineCache, const BindlessTextures& textures,
+                           std::filesystem::path shaderPath)
+    : textures_{textures},
+      pipeline_{device,
+                shaderCompiler,
+                pipelineCache,
+                std::move(shaderPath),
+                {.setLayout = textures.layout(),
+                 .pushConstantSize = sizeof(DrawConstants),
+                 .colorFormats = {ViewportTarget::normalFormat, ViewportTarget::motionFormat},
+                 .depthFormat = device.depthFormat()}}
+{
+}
+
+void DepthPrepass::record(VkCommandBuffer cb, const ViewportTarget& target, const Scene& scene,
+                          VkDeviceAddress frameData) const
+{
+    const VkExtent2D extent = target.extent();
+
+    // The previous frame may still be reading these: the tonemap pass samples normals and motion for its debug
+    // views, and the scene pass depth-tests against depth. Wait for those before clearing them.
+    const auto colorTargetBarrier = [](const Image& image) -> VkImageMemoryBarrier2
+    {
+        return {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                .srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                .srcAccessMask = VK_ACCESS_2_NONE,
+                .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                .image = image.handle(),
+                .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)};
+    };
+    pipelineBarrier(
+        cb, std::to_array<VkImageMemoryBarrier2>(
+                {colorTargetBarrier(target.normal()),
+                 colorTargetBarrier(target.motion()),
+                 {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                  .srcStageMask =
+                      VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                  .dstStageMask =
+                      VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  .dstAccessMask =
+                      VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                  .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                  .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                  .image = target.depth().handle(),
+                  .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)}}));
+
+    const auto colorAttachments = std::to_array<VkRenderingAttachmentInfo>({
+        {.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+         .imageView = target.normal().view(),
+         .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+         .clearValue{.color{0.0f, 0.0f, 0.0f, 0.0f}}},
+        {.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+         .imageView = target.motion().view(),
+         .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+         .clearValue{.color{0.0f, 0.0f, 0.0f, 0.0f}}},
+    });
+    VkRenderingAttachmentInfo depthAttachmentInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                                                  .imageView = target.depth().view(),
+                                                  .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                                                  .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                                  .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                                                  .clearValue{.depthStencil{.depth = 0.0f, .stencil = 0}}};
+    VkRenderingInfo renderingInfo{.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                                  .renderArea{.extent = extent},
+                                  .layerCount = 1,
+                                  .colorAttachmentCount = static_cast<uint32_t>(colorAttachments.size()),
+                                  .pColorAttachments = colorAttachments.data(),
+                                  .pDepthAttachment = &depthAttachmentInfo};
+    vkCmdBeginRendering(cb, &renderingInfo);
+
+    setViewportAndScissor(cb, extent);
+    recordSceneDraws(cb, pipeline_, textures_, scene, frameData);
+
+    vkCmdEndRendering(cb);
+
+    const auto sampledBarrier = [](const Image& image) -> VkImageMemoryBarrier2
+    {
+        return {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                .dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                .image = image.handle(),
+                .subresourceRange = subresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)};
+    };
+    pipelineBarrier(cb, std::to_array({sampledBarrier(target.normal()), sampledBarrier(target.motion())}));
+}

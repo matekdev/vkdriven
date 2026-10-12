@@ -107,7 +107,7 @@ Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* c
 
 Each effect is a compute or fullscreen pass over the HDR target, depth, and the prepass outputs. Give each one an ImGui toggle and a debug view, so you can show before and after.
 
-- [ ] **Depth + normal prepass**: draws the opaque scene once, writing depth, view-space normals and **motion vectors** (current vs. previous clip-space position). The main pass then tests depth with `EQUAL` and no writes. This feeds SSAO and TAA without moving to deferred.
+- [x] **Depth + normal prepass**: draws the opaque scene once, writing depth, view-space normals and **motion vectors** (current vs. previous clip-space position). The main pass then tests depth with `EQUAL` and no writes. This feeds SSAO and TAA without moving to deferred.
 - [ ] **SSAO**: hemisphere kernel, rotation noise, blur, computed after the prepass and applied to the ambient term in the main pass (*SSAO*)
 - [ ] **Bloom**: physically based downsample/upsample chain (*Guest Articles → Phys. Based Bloom*)
 - [ ] **FXAA** as the simple post-process AA baseline

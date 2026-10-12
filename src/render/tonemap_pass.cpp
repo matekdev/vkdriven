@@ -15,12 +15,12 @@ TonemapPass::TonemapPass(const Device& device, const ShaderCompiler& shaderCompi
                                      std::move(shaderPath),
                                      {.setLayout = textures.layout(),
                                       .pushConstantSize = sizeof(TonemapConstants),
-                                      .colorFormat = ViewportTarget::colorFormat,
+                                      .colorFormats = {ViewportTarget::colorFormat},
                                       .vertexInput = VertexInput::None}}
 {
 }
 
-void TonemapPass::record(VkCommandBuffer cb, const ViewportTarget& target, uint32_t hdrTextureIndex,
+void TonemapPass::record(VkCommandBuffer cb, const ViewportTarget& target, const ViewportTextureIndices& textureIndices,
                          const TonemapSettings& settings) const
 {
     const VkExtent2D extent = target.extent();
@@ -56,8 +56,11 @@ void TonemapPass::record(VkCommandBuffer cb, const ViewportTarget& target, uint3
     vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.layout(), 0, 1, &textureSet, 0, nullptr);
 
     constexpr VkShaderStageFlags pushStages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    const TonemapConstants constants{
-        .hdrTextureIndex = hdrTextureIndex, .exposure = settings.exposure, .tonemapper = settings.tonemapper};
+    const TonemapConstants constants{.textures = textureIndices,
+                                     .exposure = settings.exposure,
+                                     .tonemapper = settings.tonemapper,
+                                     .view = settings.view,
+                                     .motionScale = settings.motionScale};
     vkCmdPushConstants(cb, pipeline_.layout(), pushStages, 0, sizeof(TonemapConstants), &constants);
     vkCmdDraw(cb, 3, 1, 0, 0);
     vkCmdEndRendering(cb);

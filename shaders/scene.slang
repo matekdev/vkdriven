@@ -16,14 +16,9 @@ VSOutput main(VSInput input)
 {
     Draw draw = constants.draws[constants.drawIndex];
     Transform transform = constants.transforms[draw.transformIndex];
-    float4x4 view = constants.frame->view;
-    float4x4 projection = constants.frame->projection;
-
-    // Column vectors, so read right to left: model -> world -> view -> clip.
-    float4x4 mvp = mul(projection, mul(view, transform.model));
 
     VSOutput output;
-    output.Pos = mul(mvp, float4(input.Pos, 1.0));
+    output.Pos = ClipPosition(input.Pos, transform);
     output.WorldPos = mul(transform.model, float4(input.Pos, 1.0)).xyz;
     output.Normal = mul((float3x3)transform.normal, input.Normal);
     output.UV = input.UV;

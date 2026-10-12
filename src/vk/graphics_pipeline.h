@@ -5,6 +5,7 @@
 #include "vk/handle.h"
 
 #include <cstdint>
+#include <vector>
 
 class Device;
 
@@ -18,17 +19,19 @@ struct GraphicsPipelineInfo
 {
     VkDescriptorSetLayout setLayout{VK_NULL_HANDLE};
     uint32_t pushConstantSize{0};
-    VkFormat colorFormat{VK_FORMAT_UNDEFINED};
+    std::vector<VkFormat> colorFormats;
     VkFormat depthFormat{VK_FORMAT_UNDEFINED};
+    bool depthWrite{true};
+    VkCompareOp depthCompareOp{VK_COMPARE_OP_GREATER_OR_EQUAL};
     VertexInput vertexInput{VertexInput::Mesh};
     // Set with vkCmdSetDepthBias before drawing.
     bool dynamicDepthBias{false};
 };
 
-// The mesh pipeline: Vertex input, one color + one depth attachment (dynamic rendering, reverse-Z),
+// The mesh pipeline: Vertex input, color attachments + one depth attachment (dynamic rendering, reverse-Z),
 // dynamic viewport/scissor, and one push constant block visible to the vertex stage.
 // VertexInput::None with a VK_FORMAT_UNDEFINED depth format gives a fullscreen pass pipeline instead.
-// A VK_FORMAT_UNDEFINED color format gives a depth-only pipeline.
+// No color formats gives a depth-only pipeline.
 class GraphicsPipeline
 {
   public:

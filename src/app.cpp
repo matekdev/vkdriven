@@ -8,6 +8,7 @@
 #include "vk/check.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <limits>
@@ -32,10 +33,12 @@ App::App(RunMode mode)
       frames_{device_, allocator_, commandPool_, sizeof(FrameData)},
       scene_{orThrow(Scene::loadGltf(device_, allocator_, commandPool_, scenePath))},
       environment_{orThrow(Texture::loadHdr(device_, allocator_, commandPool_, environmentPath))},
-      bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size()) + 3},
+      bindlessTextures_{device_, static_cast<uint32_t>(scene_.textures().size()) + 5},
       pipelineCache_{device_, pipelineCachePath}, shaderDirectory_{VKDRIVEN_SHADER_DIR},
       shadowPass_{device_, allocator_, shaderCompiler_, pipelineCache_, bindlessTextures_,
                   shaderDirectory_ / "shadow.slang"},
+      depthPrepass_{device_, shaderCompiler_, pipelineCache_, bindlessTextures_,
+                    shaderDirectory_ / "depth_prepass.slang"},
       scenePass_{device_, shaderCompiler_, pipelineCache_, bindlessTextures_, shaderDirectory_ / "scene.slang",
                  shaderDirectory_ / "skybox.slang"},
       tonemapPass_{device_, shaderCompiler_, pipelineCache_, bindlessTextures_, shaderDirectory_ / "tonemap.slang"},
@@ -45,9 +48,7 @@ App::App(RunMode mode)
       viewport_{allocator_, device_.depthFormat(), swapchain_.extent()}
 {
     bindlessTextures_.write(scene_.textures());
-
-    const VkDescriptorImageInfo hdrInfo = viewport_.hdrDescriptorInfo();
-    bindlessTextures_.write(std::span{&hdrInfo, 1}, hdrTextureIndex());
+    writeViewportDescriptors();
 
     const VkDescriptorImageInfo shadowMapInfo = shadowPass_.descriptorInfo();
     bindlessTextures_.write(std::span{&shadowMapInfo, 1}, shadowMapTextureIndex());
@@ -89,6 +90,7 @@ void App::run()
         {
             reloadRequested_ = false;
             shadowPass_.reloadShaders();
+            depthPrepass_.reloadShaders();
             scenePass_.reloadShaders();
             tonemapPass_.reloadShaders();
         }
@@ -110,9 +112,7 @@ void App::run()
             // Earlier frames may still be rendering into or sampling the old images.
             device_.waitIdle();
             viewport_.resize(viewportExtent);
-
-            const VkDescriptorImageInfo hdrInfo = viewport_.hdrDescriptorInfo();
-            bindlessTextures_.write(std::span{&hdrInfo, 1}, hdrTextureIndex());
+            writeViewportDescriptors();
         }
 
         imgui_.beginFrame();
@@ -220,7 +220,7 @@ void App::drawFrame()
     }
 }
 
-void App::updateFrameData(Frame& frame) const
+void App::updateFrameData(Frame& frame)
 {
     const VkExtent2D extent = viewport_.extent();
     const float aspect{static_cast<float>(extent.width) / static_cast<float>(extent.height)};
@@ -228,8 +228,12 @@ void App::updateFrameData(Frame& frame) const
     const ShadowCascades cascades =
         computeShadowCascades(camera_, aspect, light_.directionToLight(), shadowSettings_);
 
-    const FrameData frameData{.view = camera_.view(),
-                              .projection = camera_.projection(aspect),
+    const glm::mat4 view = camera_.view();
+    const glm::mat4 projection = camera_.projection(aspect);
+    const glm::mat4 viewProjection = projection * view;
+
+    const FrameData frameData{.view = view,
+                              .projection = projection,
                               .directionToLight = glm::vec4{light_.directionToLight(), 0.0f},
                               .cameraPosition = glm::vec4{camera_.worldPosition(), 0.0f},
                               .lightRadiance = glm::vec4{light_.radiance(), 0.0f},
@@ -239,8 +243,21 @@ void App::updateFrameData(Frame& frame) const
                               .shadowMapTextureIndex = shadowMapTextureIndex(),
                               .normalOffset = shadowSettings_.normalOffset,
                               .showCascades = shadowSettings_.showCascades ? 1u : 0u,
-                              .environmentTextureIndex = environmentTextureIndex()};
+                              .environmentTextureIndex = environmentTextureIndex(),
+                              // On the first frame there's no history, so nothing has moved.
+                              .previousViewProjection = previousViewProjection_.value_or(viewProjection)};
     frame.shaderData.write(std::span{&frameData, 1});
+    previousViewProjection_ = viewProjection;
+}
+
+void App::writeViewportDescriptors()
+{
+    const auto infos = std::to_array({viewport_.descriptorInfo(viewport_.hdr()),
+                                      viewport_.descriptorInfo(viewport_.normal()),
+                                      viewport_.descriptorInfo(viewport_.motion())});
+    bindlessTextures_.write(std::span{&infos[0], 1}, hdrTextureIndex());
+    bindlessTextures_.write(std::span{&infos[1], 1}, normalTextureIndex());
+    bindlessTextures_.write(std::span{&infos[2], 1}, motionTextureIndex());
 }
 
 void App::recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, Frame& frame) const
@@ -258,12 +275,18 @@ void App::recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, Frame& fr
     shadowPass_.record(cb, scene_, frame.shaderData.deviceAddress(), shadowSettings_);
     timer.end(cb, shadowScope);
 
+    const uint32_t prepassScope = timer.begin(cb, "Depth prepass");
+    depthPrepass_.record(cb, viewport_, scene_, frame.shaderData.deviceAddress());
+    timer.end(cb, prepassScope);
+
     const uint32_t sceneScope = timer.begin(cb, "Scene");
     scenePass_.record(cb, viewport_, scene_, frame.shaderData.deviceAddress());
     timer.end(cb, sceneScope);
 
     const uint32_t tonemapScope = timer.begin(cb, "Tonemap");
-    tonemapPass_.record(cb, viewport_, hdrTextureIndex(), tonemapSettings_);
+    tonemapPass_.record(cb, viewport_,
+                        {.hdr = hdrTextureIndex(), .normal = normalTextureIndex(), .motion = motionTextureIndex()},
+                        tonemapSettings_);
     timer.end(cb, tonemapScope);
 
     const uint32_t imguiScope = timer.begin(cb, "ImGui");

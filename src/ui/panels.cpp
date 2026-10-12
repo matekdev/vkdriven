@@ -101,5 +101,12 @@ void drawTonemapPanel(TonemapSettings& settings)
     if (ImGui::Combo("Tonemapper", &tonemapper, tonemapperNames.data(), static_cast<int>(tonemapperNames.size())))
         settings.tonemapper = static_cast<Tonemapper>(tonemapper);
     ImGui::SliderFloat("Exposure", &settings.exposure, 0.01f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+
+    constexpr auto viewNames = std::to_array<const char*>({"Lit", "Normals", "Motion vectors"});
+    int view = static_cast<int>(settings.view);
+    if (ImGui::Combo("View", &view, viewNames.data(), static_cast<int>(viewNames.size())))
+        settings.view = static_cast<ViewportView>(view);
+    if (settings.view == ViewportView::MotionVectors)
+        ImGui::SliderFloat("Motion scale", &settings.motionScale, 1.0f, 500.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
     ImGui::End();
 }

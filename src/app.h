@@ -7,6 +7,7 @@
 #include "platform/file_watcher.h"
 #include "platform/window.h"
 #include "profiling/benchmark.h"
+#include "render/depth_prepass.h"
 #include "render/scene_pass.h"
 #include "render/shadow_pass.h"
 #include "render/tonemap_pass.h"
@@ -29,6 +30,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <vector>
 
 enum class RunMode
@@ -59,7 +61,7 @@ class App
     [[nodiscard]] bool handleEvents();
     void drawUi();
     void drawFrame();
-    void updateFrameData(Frame& frame) const;
+    void updateFrameData(Frame& frame);
     void recordCommandBuffer(VkCommandBuffer cb, uint32_t imageIndex, Frame& frame) const;
 
     [[nodiscard]] uint32_t hdrTextureIndex() const
@@ -77,6 +79,19 @@ class App
         return shadowMapTextureIndex() + 1;
     }
 
+    [[nodiscard]] uint32_t normalTextureIndex() const
+    {
+        return environmentTextureIndex() + 1;
+    }
+
+    [[nodiscard]] uint32_t motionTextureIndex() const
+    {
+        return normalTextureIndex() + 1;
+    }
+
+    // The viewport images are recreated on resize, so their descriptors are rewritten then too.
+    void writeViewportDescriptors();
+
     RunMode mode_;
     Window window_;
     Instance instance_;
@@ -93,6 +108,7 @@ class App
     PipelineCache pipelineCache_;
     std::filesystem::path shaderDirectory_;
     ShadowPass shadowPass_;
+    DepthPrepass depthPrepass_;
     ScenePass scenePass_;
     TonemapPass tonemapPass_;
     FileWatcher shaderWatcher_;
@@ -107,6 +123,7 @@ class App
     float cpuRecordMilliseconds_{0.0f};
     Benchmark benchmark_;
     glm::vec2 mouseDelta_{};
+    std::optional<glm::mat4> previousViewProjection_;
     bool viewportHovered_{false};
 
     VkExtent2D requestedViewportExtent_{};

@@ -1,8 +1,12 @@
 struct TonemapConstants
 {
     uint hdrTextureIndex;
+    uint normalTextureIndex;
+    uint motionTextureIndex;
     float exposure;
     uint tonemapper;
+    uint view;
+    float motionScale;
 };
 
 [[vk::push_constant]] TonemapConstants constants;
@@ -14,6 +18,11 @@ static const uint TONEMAPPER_REINHARD = 1;
 static const uint TONEMAPPER_ACES = 2;
 static const uint TONEMAPPER_AGX = 3;
 static const uint TONEMAPPER_PBR_NEUTRAL = 4;
+
+// Must match the ViewportView enum in tonemap_pass.h.
+static const uint VIEW_LIT = 0;
+static const uint VIEW_NORMALS = 1;
+static const uint VIEW_MOTION_VECTORS = 2;
 
 struct VSOutput
 {
@@ -106,6 +115,19 @@ float3 PbrNeutral(float3 color)
 [shader("fragment")]
 float4 main(VSOutput input)
 {
+    // View-space normals: +X right is red, +Y up is green, +Z towards the camera is blue. The sky stays black.
+    if (constants.view == VIEW_NORMALS)
+    {
+        float3 normal = textures[constants.normalTextureIndex].Sample(input.UV).xyz;
+        return float4(any(normal != 0.0) ? normal * 0.5 + 0.5 : 0.0, 1.0);
+    }
+    // Screen movement since last frame: red is horizontal, green is vertical, either direction.
+    if (constants.view == VIEW_MOTION_VECTORS)
+    {
+        float2 motion = textures[constants.motionTextureIndex].Sample(input.UV).xy;
+        return float4(abs(motion) * constants.motionScale, 0.0, 1.0);
+    }
+
     float3 hdr = textures[constants.hdrTextureIndex].Sample(input.UV).rgb * constants.exposure;
 
     float3 mapped;
