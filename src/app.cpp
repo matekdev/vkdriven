@@ -24,10 +24,10 @@ constexpr const char* environmentPath = "assets/environment/kloofendal_48d_partl
 
 } // namespace
 
-App::App()
-    : window_{"vkdriven", 1920, 1080}, instance_{"vkdriven", window_.requiredInstanceExtensions()},
+App::App(RunMode mode)
+    : mode_{mode}, window_{"vkdriven", 1920, 1080}, instance_{"vkdriven", window_.requiredInstanceExtensions()},
       surface_{instance_, window_}, device_{instance_, surface_}, allocator_{instance_, device_},
-      swapchain_{device_, surface_, window_}, commandPool_{device_},
+      swapchain_{device_, surface_, window_, mode != RunMode::Benchmark}, commandPool_{device_},
       frames_{device_, allocator_, commandPool_, sizeof(FrameData)},
       scene_{orThrow(Scene::loadGltf(device_, allocator_, commandPool_, scenePath))},
       environment_{orThrow(Texture::loadHdr(device_, allocator_, commandPool_, environmentPath))},
@@ -64,7 +64,7 @@ App::~App()
     device_.waitIdle();
 }
 
-void App::run(RunMode mode)
+void App::run()
 {
     // Gives the viewport panel a few frames to settle on its size before the benchmark records it.
     constexpr uint32_t benchmarkStartFrame = 10;
@@ -72,7 +72,7 @@ void App::run(RunMode mode)
 
     while (true)
     {
-        if (mode == RunMode::Benchmark)
+        if (mode_ == RunMode::Benchmark)
         {
             if (frameCount == benchmarkStartFrame)
                 benchmark_.start();

@@ -16,8 +16,8 @@ int main(int argc, char** argv)
 
     try
     {
-        App app;
-        app.run(benchmark ? RunMode::Benchmark : RunMode::Interactive);
+        App app{benchmark ? RunMode::Benchmark : RunMode::Interactive};
+        app.run();
     }
     catch (const std::exception& e)
     {
