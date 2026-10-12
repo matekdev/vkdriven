@@ -1,6 +1,8 @@
 # vkdriven Roadmap
 
-**Current scope: P0 through P5.** P6, P7 and the stretch items are listed for later and aren't part of the current plan.
+**Current scope: P0 through P4.** P5 and the stretch items are listed for later and aren't part of the current plan.
+
+**Focus: breadth over depth.** Each phase covers standard real-time techniques that come up in graphics interviews and take a week or two each to build. Performance work (GPU-driven pipelines, culling, meshlets, profiling case studies) is out of scope.
 
 vkdriven is a renderer built on a modern explicit API.
 
@@ -45,7 +47,7 @@ A **renderer**: it loads glTF models and scenes and draws them with modern Vulka
 
 ## 4. Phased checklist
 
-Hour estimates assume ~5 hrs/week. P0 through P4 is about 155h, or roughly **8 months** with blog writing included.
+Hour estimates assume ~5 hrs/week. P0 through P4 is about 145h, or roughly **7 months** with blog writing included.
 
 ### P0: Setup (~10h, 2 weeks)
 - [x] New repo. CMake presets + vcpkg manifest. C++23. Visual Studio 2026.
@@ -99,61 +101,42 @@ Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* c
 - [x] Compute pipelines and a `VkPipelineCache` saved to disk (not in the tutorial)
 - [x] Shadow mapping basics: single directional shadow map, depth bias, PCF (*Shadows → Shadow Mapping*). Remember reverse-Z flips the comparison.
 - [x] **Cascaded shadow maps**: cascade splits, a layered depth image, cascade selection (*Guest Articles → Cascaded Shadow Mapping*). Beyond the tutorial: texel snapping to stop shimmering, and normal-offset bias.
-
-### P4: GPU-driven rendering (~50h, 10 weeks). ★ The main feature
-- [ ] **Compute frustum culling** per instance → writes a compacted draw list
-- [ ] `vkCmdDrawIndexedIndirectCount`: the whole scene in one draw call
-- [ ] **Hi-Z depth pyramid** (compute downsample, min/max reduction)
-- [ ] **Two-pass occlusion culling**: draw last frame's visible objects, build Hi-Z, cull the rest, draw the newly visible ones
-- [ ] Add **meshoptimizer**. **Meshlets** built with `meshopt_buildMeshlets`.
-- [ ] **Mesh shaders** (`VK_EXT_mesh_shader`): task shader does per-meshlet frustum, occlusion, and **cone backface** culling; mesh shader outputs triangles
-- [ ] Fallback path without mesh shaders (meshlet index buffer + indirect draw), so it runs on all hardware
-- [ ] Simple LOD (meshoptimizer `simplify`) chosen per instance in the culling shader
-- [ ] Stress scene: 100k–1M instances (a procedurally scattered city or forest), or a large CAD-like assembly with heavy instancing
-- [ ] ImGui: counts of instances, meshlets, and triangles submitted vs. culled, and time per pass
-- [ ] 📝 Blog: "GPU-driven culling: from N draw calls to 1". Include CPU time, GPU time, and triangle counts before and after.
-
-### P5: Profiling case studies (~20h, alongside P3 onward)
 - [x] GPU timestamp queries per pass
-- [ ] Profile with vendor tools on whatever hardware is available: **Nsight Graphics** (NVIDIA), **Radeon GPU Profiler** (AMD), **Intel GPA**
-- [ ] Learn to read: occupancy, register/VGPR pressure, memory bandwidth, cache hit rates, warp/wave stalls, overdraw
-- [ ] Write 2–3 case studies, each laid out as "this pass was slow → here's the capture → here's why → here's the fix → here's the new number". Candidates:
-  - [ ] Culling shader occupancy (changing workgroup size, register usage)
-  - [ ] Shadow pass cost vs. cascade count and resolution
-  - [ ] Mesh shader path vs. indirect-draw path, on one or more GPUs
-  - [ ] (Optional) PNG vs. KTX2/BC7 textures (`KHR_texture_basisu`, transcoded with KTX-Software): VRAM, load time and frame time
-- [ ] 📝 Blog: one post per case study
+
+### P4: Screen-space effects & post-processing (~40h, 8 weeks). *Milestone: Sponza with SSAO, bloom and TAA, each toggleable in ImGui*
+
+Each effect is a compute or fullscreen pass over the HDR target, depth, and the prepass outputs. Give each one an ImGui toggle and a debug view, so you can show before and after.
+
+- [ ] **Depth + normal prepass**: draws the opaque scene once, writing depth, view-space normals and **motion vectors** (current vs. previous clip-space position). The main pass then tests depth with `EQUAL` and no writes. This feeds SSAO and TAA without moving to deferred.
+- [ ] **SSAO**: hemisphere kernel, rotation noise, blur, computed after the prepass and applied to the ambient term in the main pass (*SSAO*)
+- [ ] **Bloom**: physically based downsample/upsample chain (*Guest Articles → Phys. Based Bloom*)
+- [ ] **FXAA** as the simple post-process AA baseline
+- [ ] **TAA**: sub-pixel jitter (Halton), reprojection with motion vectors, neighborhood clamping of the history, then sharpening. Compare against FXAA.
+- [ ] Exponential distance/height fog, applied from depth
+- [ ] (Optional) **SSR**: screen-space reflections by ray marching the depth buffer
+- [ ] (Optional) Color grading with a 3D LUT in the tonemap pass
+- [ ] **Transparency**: a second forward pass for alpha-blended materials (glTF `BLEND`), sorted back to front, depth-tested against the opaque depth without writing it (*Blending*)
+- [ ] 📝 Blog: "TAA from scratch: jitter, reprojection and ghosting"
 
 ---
 
-> **Current scope ends here.** Everything below is for after P5.
+> **Current scope ends here.** Everything below is for after P4.
 
-### P6: Ray tracing (~35h, 7 weeks)
-- [ ] `VK_KHR_acceleration_structure`: build a BLAS per mesh and a TLAS per frame
-- [ ] BLAS **compaction**. TLAS **update/refit** vs. full rebuild, with timings.
+### P5: Ray tracing (~25h, 5 weeks)
+- [ ] `VK_KHR_acceleration_structure`: build a BLAS per mesh and a TLAS
 - [ ] `VK_KHR_ray_query` in compute/fragment shaders:
-  - [ ] Ray-traced shadows, compared against CSM (quality and cost)
-  - [ ] Ray-traced ambient occlusion
-- [ ] (Optional) A small path-tracing reference mode (ray-tracing pipeline + SBT) to check PBR correctness
-- [ ] 📝 Blog: "RT shadows vs. cascaded shadow maps, with numbers"
+  - [ ] Ray-traced shadows, compared against CSM
+  - [ ] Ray-traced ambient occlusion, compared against SSAO
+- [ ] (Optional) A small path-tracing reference mode to check PBR correctness
+- [ ] 📝 Blog: "RT shadows vs. cascaded shadow maps"
 
-### P7: Frame structure (~25h, 5 weeks)
+### Stretch (pick 1–2)
 - [ ] Lightweight **render graph**: passes declare what they read and write, and barriers and transient resources are handled automatically
-- [ ] Dedicated compute + transfer queues, staging uploads with queue-family ownership transfer
-- [ ] **Async compute**: run culling or SSAO on the compute queue overlapped with graphics, with timeline semaphores. Measure the overlap.
-
-### Stretch: CAD flavor (pick 1–2)
-- [ ] **Camera-relative rendering** for large coordinates (double precision on the CPU, float relative to the camera on the GPU). Show the jitter being fixed.
-- [ ] **Edge / silhouette line rendering** (feature edges, hidden-line style)
-- [ ] Selection highlight / outline with GPU picking (ID buffer)
-- [ ] Section / clipping planes with capping
-- [ ] Heavy instancing of repeated parts (bolts, fasteners) with per-instance data
-
-### Stretch: general (pick 1–2)
-- [ ] TAA (jitter, reprojection, history clamping) or SMAA
-- [ ] Bloom (physically based downsample/upsample)
-- [ ] Visibility buffer (a natural follow-on to meshlets)
-- [ ] Virtual shadow maps
+- [ ] Order-independent transparency (weighted blended OIT)
+- [ ] Projected decals
+- [ ] Volumetric light / god rays by ray marching the shadow map
+- [ ] Compute particles
+- [ ] Camera-relative rendering for large coordinates
 
 ---
 
@@ -165,8 +148,7 @@ Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* c
 | 0.5–2.5 | P1 Vulkan core | How to Vulkan finished, then textured Sponza, blog post |
 | 2.5–3.5 | P2 Assets | Sponza loads, bindless materials |
 | 3.5–5 | P3 PBR + CSM | Blog post, screenshots |
-| 5–8 | P4 GPU-driven | Blog post |
-| 5–9 | P5 Profiling | 2–3 case study posts |
+| 5–7 | P4 Screen-space + post | Blog post, before/after screenshots |
 
 ---
 
@@ -179,16 +161,18 @@ Follow [LearnOpenGL](https://learnopengl.com/)'s *Advanced Lighting* and *PBR* c
 
 **Vulkan**
 - **[How to Vulkan](https://www.howtovulkan.com/)** by Sascha Willems: the primary reference for P1. Modern Vulkan 1.3 in one file, same libraries as this project ([source](https://github.com/SaschaWillems/HowToVulkan)).
-- **[LearnOpenGL](https://learnopengl.com/)** by Joey de Vries: the primary reference for P3 (Gamma Correction, HDR, Normal Mapping, Shadow Mapping, the PBR chapters, and the Cascaded Shadow Mapping guest article). OpenGL, but the lighting and the math carry over directly.
+- **[LearnOpenGL](https://learnopengl.com/)** by Joey de Vries: the primary reference for P3–P4 (Gamma Correction, HDR, Normal Mapping, Shadow Mapping, PBR, Cascaded Shadow Mapping, Blending, SSAO, Phys. Based Bloom). OpenGL, but the lighting and the math carry over directly.
 - vkguide.dev: a second take on Vulkan 1.3 (dynamic rendering, BDA), useful for engine structure after P1
 - Khronos Vulkan-Samples, and Sascha Willems' Vulkan examples
-- **niagara** by Arseny Kapoulkine (zeux): GitHub repo plus YouTube streams. Very close to P4.
 - Vulkan Guide by Khronos (docs.vulkan.org), especially the synchronization chapters
 
-**GPU architecture & perf**
+**Techniques**
+- Brian Karis, "High Quality Temporal Supersampling" (SIGGRAPH 2014), and Yang et al., "A Survey of Temporal Antialiasing Techniques" (2020): TAA
+- Jorge Jimenez, "Next Generation Post Processing in Call of Duty: Advanced Warfare" (SIGGRAPH 2014): bloom
+- Timothy Lottes, FXAA 3.11 whitepaper
+
+**GPU architecture** (common interview ground)
 - "A Trip Through the Graphics Pipeline 2011" by Fabian Giesen
-- AMD GPUOpen (RDNA performance guides, RGP docs)
-- NVIDIA developer blog: Vulkan do's & don'ts, Nsight tutorials, mesh shader introduction
 - "Life of a triangle" (NVIDIA)
 
 **Staying current**
